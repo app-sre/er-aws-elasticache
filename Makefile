@@ -1,32 +1,18 @@
-CODE_ROOT := python_project_template
-# TWINE_USERNAME & TWINE_PASSWORD are available in the Jenkins job
-BUILD_ARGS := CODE_ROOT=$(CODE_ROOT) POETRY_VERSION=1.8.3 TWINE_USERNAME TWINE_PASSWORD
 CONTAINER_ENGINE ?= $(shell which podman >/dev/null 2>&1 && echo podman || echo docker)
 
-.EXPORT_ALL_VARIABLES:
-POETRY_HTTP_BASIC_PYPI_USERNAME = $(TWINE_USERNAME)
-POETRY_HTTP_BASIC_PYPI_PASSWORD = $(TWINE_PASSWORD)
-
-format:
-	poetry run ruff check
-	poetry run ruff format
 .PHONY: format
+format:
+	uv run ruff check
+	uv run ruff format
 
-pr-check:
-	$(CONTAINER_ENGINE) build --build-arg MAKE_TARGET=test $(foreach arg,$(BUILD_ARGS),--build-arg $(arg)) .
-.PHONY: pr-check
-
-test:
-	poetry run ruff check --no-fix
-	poetry run ruff format --check
-	poetry run mypy
-	poetry run pytest -vv --cov=$(CODE_ROOT) --cov-report=term-missing --cov-report xml
 .PHONY: test
+test:
+	unset UV_FROZEN && uv lock --locked
+	uv run ruff check --no-fix
+	uv run ruff format --check
+	uv run mypy
+	uv run pytest -vv --cov=er_aws_elasticache --cov-report=term-missing --cov-report xml
 
-build-deploy:
-	$(CONTAINER_ENGINE) build --build-arg MAKE_TARGET=pypi $(foreach arg,$(BUILD_ARGS),--build-arg $(arg)) .
-.PHONY: build-deploy
-
-pypi:
-	poetry publish --build --skip-existing
-.PHONY: pypi
+.PHONY: build
+build:
+	$(CONTAINER_ENGINE) build -t er-aws-elasticache:test .

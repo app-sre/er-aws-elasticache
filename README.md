@@ -1,38 +1,63 @@
-# python-project-template
+# External Resources Elasticache Module
 
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![PyPI](https://img.shields.io/pypi/v/python-project-template)][pypi-link]
-[![PyPI platforms][pypi-platforms]][pypi-link]
-![PyPI - License](https://img.shields.io/pypi/l/python-project-template)
 
-This is a template for a Python project. It can be used via GitHub's template feature or by copying and pasting the files into your project.
+External Resources module to provision and manage Elasticache clusters in AWS with app-interface.
 
-## Features
+## Tech stack
 
-- [Poetry](https://python-poetry.org/) for dependency management.
-- [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
-- Containerized CI/CD tasks.
-- Secure `.gitignore` and `.dockerignore` files.
-- Example code and tests.
+* Terraform CDKTF
+* AWS provider
+* Random provider
+* Python 3.11
+* Pydantic
 
-## Usage
+## Debugging
 
-1. Create a new GitHub repository using this template.
-1. Replace the dummy project name `python-project-template` with your project name.
+To debug and run the module locally, run the following commands:
 
-   ```bash
-    find . -type d -name .git -prune  -o -type f -exec sed -i "s/python-project-template/your-project-name/g" {} \;
-    git mv python_project_template $PROJECT_PACKAGE
-    find . -type d -name .git -prune  -o -type f -exec sed -i "s/python_project_template/$PROJECT_PACKAGE/g" {} \;
-    ```
+```bash
+# Create the docker image
+$ make build
 
-1. Replace the dummy python package name `python_project_template` (snake_case!) with your package name.
+# Get the input file from app-interface
+qontract-cli --config=<CONFIG_TOML> external-resources --provisioner <AWS_ACCOUNT_NAME> --provider elasticache --identifier <IDENTIFIER> get-input > tmp/input.json
 
-   ```bash
-    export PROJECT_PACKAGE=your_project_name # snake_case
-    git mv python_project_template $PROJECT_PACKAGE
-    find . -type d -name .git -prune  -o -type f -exec sed -i "s/python_project_template/$PROJECT_PACKAGE/g" {} \;
-    ```
+# Get the AWS credentials
+$ vault login -method=oidc -address=https://vault.devshift.net
+$ vault kv get \
+    -mount app-sre/ \
+    -field credentials \
+    external-resources/<AWS_ACCOUNT_NAME> > tmp/credentials
 
-[pypi-link]:                https://pypi.org/project/python-project-template/
-[pypi-platforms]:           https://img.shields.io/pypi/pyversions/python-project-template
+# Run the stack
+$ docker run --rm -it \
+    --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json \
+    --mount type=bind,source=$PWD/tmp/credentials,target=/credentials \
+    quay.io/app-sre/er-aws-elasticache:$(git describe --tags)
+```
+
+Get the stack file:
+
+```bash
+$ docker rm -f erv2 && docker run --name erv2 --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json --mount type=bind,source=$PWD/tmp/credentials,target=/credentials -e AWS_SHARED_CREDENTIALS_FILE=/credentials --entrypoint cdktf quay.io/app-sre/er-aws-elasticache:$(git describe --tags) synth --output /tmp/cdktf.out
+
+docker cp erv2:/tmp/cdktf.out/stacks/CDKTF/cdk.tf.json tmp/cdk.tf.json
+```
+
+Compile the plan:
+
+```bash
+cd tmp/...
+terraform init
+terraform plan -out=plan.out
+terraform show -json plan.out > plan.json
+```
+
+Run the validation:
+
+```bash
+export ER_INPUT_FILE=$PWD/tmp/input.json
+export AWS_SHARED_CREDENTIALS_FILE=$PWD/tmp/credentials
+python validate_plan.py tmp/plan.json
+```
