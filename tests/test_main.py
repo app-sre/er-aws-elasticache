@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 from cdktf import App
-from er_aws_msk.__main__ import get_ai_input, init_cdktf_app  # noqa: PLC2701
-from er_aws_msk.app_interface_input import AppInterfaceInput
+
+from er_aws_elasticache.__main__ import get_ai_input, init_cdktf_app  # noqa: PLC2701
+from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 
 @pytest.fixture(autouse=True)

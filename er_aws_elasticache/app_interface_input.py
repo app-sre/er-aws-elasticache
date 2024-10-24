@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from typing import Any, Literal, Self
 
 from external_resources_io.input import AppInterfaceProvision
@@ -34,7 +34,7 @@ class ParameterGroup(BaseModel):
     family: str
     name: str
     description: str
-    parameters: Iterable[Parameter]
+    parameters: Sequence[Parameter]
 
 
 class ElasticacheData(BaseModel):
