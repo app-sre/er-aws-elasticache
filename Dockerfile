@@ -28,6 +28,10 @@ ENV \
     # Activate the virtual environment
     PATH="${HOME}/.venv/bin:${PATH}"
 
+RUN useradd -u 1001 -g 0 -d ${HOME} -s /sbin/nologin -c "Default Application User" app && \
+    chown -R 1001:0 ${HOME}
+
+USER 1001
 
 # Install dependencies
 COPY pyproject.toml uv.lock ./
@@ -44,7 +48,11 @@ COPY er_aws_elasticache ./er_aws_elasticache
 RUN uv sync --no-editable --no-dev
 
 FROM prod AS test
+
+USER 0
 RUN microdnf install -y make
+USER 1001
+
 # install test dependencies
 RUN uv sync --no-editable
 
