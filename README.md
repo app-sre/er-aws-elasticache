@@ -17,8 +17,9 @@ External Resources module to provision and manage Elasticache clusters in AWS wi
 To debug and run the module locally, run the following commands:
 
 ```bash
-# Create the docker image
-$ make build
+# setup the environment
+$ export VERSION=$(grep konflux.additional-tags Dockerfile | cut -f2 -d\")
+$ export IMAGE=quay.io/redhat-services-prod/app-sre-tenant/er-er-aws-elasticache-main/er-er-aws-elasticache-main:$VERSION
 
 # Get the input file from app-interface
 qontract-cli --config=<CONFIG_TOML> external-resources --provisioner <AWS_ACCOUNT_NAME> --provider elasticache --identifier <IDENTIFIER> get-input > tmp/input.json
@@ -34,13 +35,18 @@ $ vault kv get \
 $ docker run --rm -it \
     --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json \
     --mount type=bind,source=$PWD/tmp/credentials,target=/credentials \
-    quay.io/app-sre/er-aws-elasticache:$(git describe --tags)
+    "$IMAGE"
 ```
 
 Get the stack file:
 
 ```bash
-$ docker rm -f erv2 && docker run --name erv2 --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json --mount type=bind,source=$PWD/tmp/credentials,target=/credentials -e AWS_SHARED_CREDENTIALS_FILE=/credentials --entrypoint cdktf quay.io/app-sre/er-aws-elasticache:$(git describe --tags) synth --output /tmp/cdktf.out
+docker rm -f erv2 && docker run --name erv2 \
+  --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json \
+  --mount type=bind,source=$PWD/tmp/credentials,target=/credentials  \
+  --entrypoint cdktf \
+  "$IMAGE" \
+  synth --output /tmp/cdktf.out
 
 docker cp erv2:/tmp/cdktf.out/stacks/CDKTF/cdk.tf.json tmp/cdk.tf.json
 ```
