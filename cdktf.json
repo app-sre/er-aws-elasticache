@@ -1,6 +1,6 @@
 {
   "language": "python",
-  "app": ".venv/bin/er-aws-elasticache",
+  "app": "er-aws-elasticache",
   "projectId": "ec01b27b-cc11-4daf-1281-ffbccf2571e1",
   "sendCrashReports": "false",
   "terraformProviders": [],

@@ -24,7 +24,9 @@ ENV \
     # disable uv cache. it doesn't make sense in a container
     UV_NO_CACHE=true \
     # uv will run without updating the uv.lock file.
-    UV_FROZEN=true
+    UV_FROZEN=true \
+    # Activate the virtual environment
+    PATH="${HOME}/.venv/bin:${PATH}"
 
 
 # Install dependencies
@@ -33,7 +35,7 @@ RUN uv sync --no-install-project --no-dev
 
 # other project related files
 COPY LICENSE /licenses/LICENSE
-COPY README.md Makefile cdktf.json ./
+COPY README.md Makefile cdktf.json validate_plan.py ./
 
 # the source code
 COPY er_aws_elasticache ./er_aws_elasticache
