@@ -29,7 +29,9 @@ ENV \
     PATH="${HOME}/.venv/bin:${PATH}"
 
 RUN useradd -u 1001 -g 0 -d ${HOME} -s /sbin/nologin -c "Default Application User" app && \
-    chown -R 1001:0 ${HOME}
+    chown -R 1001:0 ${HOME} && \
+    # Clean up /tmp
+    rm -rf /tmp && mkdir /tmp && chmod 1777 /tmp
 
 USER 1001
 
@@ -57,4 +59,4 @@ USER 1001
 RUN uv sync --no-editable
 
 COPY tests ./tests
-RUN make test
+RUN make test && rm -rf /tmp/*
