@@ -1,6 +1,7 @@
 # External Resources Elasticache Module
 
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 External Resources module to provision and manage Elasticache clusters in AWS with app-interface.
 
@@ -12,6 +13,20 @@ External Resources module to provision and manage Elasticache clusters in AWS wi
 * Python 3.11
 * Pydantic
 
+## Development
+
+> :warning: **Attention**
+>
+> The CDKTF Python module generation needs at least 12GB of memory and takes around 5 minutes to complete.
+
+Prepare your lcoal development environment:
+
+```bash
+make dev
+```
+
+See the `Makefile` for more details.
+
 ## Debugging
 
 To debug and run the module locally, run the following commands:
@@ -19,7 +34,7 @@ To debug and run the module locally, run the following commands:
 ```bash
 # setup the environment
 $ export VERSION=$(grep konflux.additional-tags Dockerfile | cut -f2 -d\")
-$ export IMAGE=quay.io/redhat-services-prod/app-sre-tenant/er-er-aws-elasticache-main/er-er-aws-elasticache-main:$VERSION
+$ export IMAGE=quay.io/redhat-services-prod/app-sre-tenant/er-aws-elasticache-main/er-aws-elasticache-main:$VERSION
 
 # Get the input file from app-interface
 qontract-cli --config=<CONFIG_TOML> external-resources --provisioner <AWS_ACCOUNT_NAME> --provider elasticache --identifier <IDENTIFIER> get-input > tmp/input.json
