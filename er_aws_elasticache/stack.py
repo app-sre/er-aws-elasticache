@@ -1,4 +1,10 @@
-from cdktf import Fn, S3Backend, TerraformOutput, TerraformStack
+from cdktf import (
+    Fn,
+    S3Backend,
+    TerraformOutput,
+    TerraformResourceLifecycle,
+    TerraformStack,
+)
 from cdktf_cdktf_provider_aws.elasticache_parameter_group import (
     ElasticacheParameterGroup,
     ElasticacheParameterGroupParameter,

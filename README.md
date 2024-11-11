@@ -56,14 +56,14 @@ $ docker run --rm -it \
 Get the stack file:
 
 ```bash
-docker rm -f erv2 && docker run --name erv2 \
+docker rm -f erv2 && docker run --name cdktf-debug \
   --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json \
   --mount type=bind,source=$PWD/tmp/credentials,target=/credentials  \
   --entrypoint cdktf \
   "$IMAGE" \
   synth --output /tmp/cdktf.out
 
-docker cp erv2:/tmp/cdktf.out/stacks/CDKTF/cdk.tf.json tmp/cdk.tf.json
+docker cp cdktf-debug:/tmp/cdktf.out/stacks/CDKTF/cdk.tf.json tmp/cdk.tf.json
 ```
 
 Compile the plan:
