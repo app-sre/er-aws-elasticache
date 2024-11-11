@@ -80,6 +80,8 @@ class ElasticacheStack(TerraformStack):
                 self,
                 id=f"{self.data.identifier}-password",
                 length=20,
+                # https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/auth.html
+                override_special="!&#$^<>-",
                 keepers={"reset_password": self.data.reset_password}
                 if self.data.reset_password
                 else None,
