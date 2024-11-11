@@ -14,6 +14,7 @@ from cdktf_cdktf_provider_aws.elasticache_replication_group import (
     ElasticacheReplicationGroupLogDeliveryConfiguration,
 )
 from cdktf_cdktf_provider_aws.provider import AwsProvider
+from cdktf_cdktf_provider_random.password import Password
 from cdktf_cdktf_provider_random.provider import RandomProvider
 from constructs import Construct
 
@@ -73,6 +74,16 @@ class ElasticacheStack(TerraformStack):
     def _create_elasticache(
         self, parameter_group: ElasticacheParameterGroup | None
     ) -> ElasticacheReplicationGroup:
+        auth_token = None
+        if self.data.transit_encryption_enabled:
+            auth_token = Password(
+                self,
+                id=f"{self.data.identifier}-password",
+                length=20,
+                keepers={"reset_password": self.data.reset_password}
+                if self.data.reset_password
+                else None,
+            ).result
         return ElasticacheReplicationGroup(
             self,
             self.data.identifier,
@@ -83,7 +94,7 @@ class ElasticacheStack(TerraformStack):
                 self.data.auto_minor_version_upgrade
             ).lower(),
             automatic_failover_enabled=self.data.automatic_failover_enabled,
-            auth_token=self.data.auth_token,
+            auth_token=auth_token,
             description=self.data.replication_group_description,
             engine=self.data.engine,
             engine_version=self.data.engine_version,

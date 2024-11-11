@@ -53,7 +53,7 @@ class ElasticacheData(BaseModel):
     at_rest_encryption_enabled: bool | None = None
     auto_minor_version_upgrade: bool | None = None
     automatic_failover_enabled: bool | None = None
-    auth_token: str | None = None
+    reset_password: str | None = None
     replication_group_description: str = "elasticache replication group"
     engine: str
     engine_version: str

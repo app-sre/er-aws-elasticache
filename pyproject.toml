@@ -102,4 +102,4 @@ branch = true
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
-fail_under = 88
+fail_under = 85

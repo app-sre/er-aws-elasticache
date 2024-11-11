@@ -37,7 +37,6 @@ def raw_input_data() -> dict:
             },
             "output_resource_name": "example-elasticache",
             "output_prefix": "example-elasticache-elasticache",
-            "auth_token": "not-a-real-token",
             "tags": {
                 "managed_by_integration": "external_resources",
                 "cluster": "appint-ex-01",
