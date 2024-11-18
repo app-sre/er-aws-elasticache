@@ -70,6 +70,7 @@ Compile the plan:
 
 ```bash
 cd tmp/...
+export AWS_SHARED_CREDENTIALS_FILE=../credentials
 terraform init
 terraform plan -out=plan.out
 terraform show -json plan.out > plan.json
@@ -79,6 +80,5 @@ Run the validation:
 
 ```bash
 export ER_INPUT_FILE=$PWD/tmp/input.json
-export AWS_SHARED_CREDENTIALS_FILE=$PWD/tmp/credentials
 python validate_plan.py tmp/plan.json
 ```
