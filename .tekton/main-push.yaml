@@ -32,7 +32,7 @@ spec:
     - linux/x86_64
     # - linux-m2xlarge/arm64
   taskRunSpecs:
-  - pipelineTaskName: build-images
+  - pipelineTaskName: build-container
     stepSpecs:
     - name: build
       computeResources:
