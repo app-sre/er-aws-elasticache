@@ -29,8 +29,8 @@ else:
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("botocore")
-logger.setLevel(logging.ERROR)
+logging.getLogger("botocore").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
 
 
 class AWSApi:
@@ -113,7 +113,7 @@ class ElasticachePlanValidator:
         ]
 
     def _validate_replication_group_id(self, replication_group_id: str) -> None:
-        logging.info(f"Validating Elasticache replication group {replication_group_id}")
+        logger.info(f"Validating Elasticache replication group {replication_group_id}")
         try:
             self.aws_api.client.describe_replication_groups(
                 ReplicationGroupId=replication_group_id
@@ -125,7 +125,7 @@ class ElasticachePlanValidator:
             pass
 
     def _validate_subnets(self, cache_subnet_group_name: str) -> str | None:
-        logging.info(f"Validating Elasticache subnet group {cache_subnet_group_name}")
+        logger.info(f"Validating Elasticache subnet group {cache_subnet_group_name}")
 
         vpc_ids: set[str] = set()
         cache_group_subnets = self.aws_api.get_cache_group_subnets(
@@ -149,7 +149,7 @@ class ElasticachePlanValidator:
     def _validate_security_groups(
         self, security_groups: Sequence[str], vpc_id: str
     ) -> None:
-        logging.info(f"Validating security group {security_groups}")
+        logger.info(f"Validating security group {security_groups}")
         data = self.aws_api.get_security_groups(security_groups)
         if missing := set(security_groups).difference({s.get("GroupId") for s in data}):
             self.errors.append(f"Security group(s) {missing} not found")
@@ -162,7 +162,7 @@ class ElasticachePlanValidator:
                 )
 
     def _validate_parameter_group(self, name: str) -> None:
-        logging.info(f"Validating Elasticache parameter group {name}")
+        logger.info(f"Validating Elasticache parameter group {name}")
         try:
             self.aws_api.client.describe_cache_parameters(CacheParameterGroupName=name)
             self.errors.append(f"Parameter group {name} already exists!")
@@ -196,11 +196,11 @@ if __name__ == "__main__":
             file_path=os.environ.get("ER_INPUT_FILE", "/inputs/input.json"),
         ),
     )
-    logging.info("Running Elasticache terraform plan validation")
+    logger.info("Running Elasticache terraform plan validation")
     plan = TerraformJsonPlanParser(plan_path=sys.argv[1])
     validator = ElasticachePlanValidator(plan, app_interface_input)
     if not validator.validate():
-        logging.error(validator.errors)
+        logger.error(validator.errors)
         sys.exit(1)
 
-    logging.info("Validation ended succesfully")
+    logger.info("Validation ended succesfully")
