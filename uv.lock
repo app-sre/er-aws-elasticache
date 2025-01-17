@@ -491,11 +491,11 @@ wheels = [
 
 [[package]]
 name = "types-s3transfer"
-version = "0.11.0"
+version = "0.11.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/70/ac/6379dbfa5bdd47034ac2fd14fc24259572b121e6f7ebfb1baa6fed7e2451/types_s3transfer-0.11.0.tar.gz", hash = "sha256:06e5143457d9c16af547f9fc929ffad675f935fbf05bd2810312603d7c81f019", size = 14031 }
+sdist = { url = "https://files.pythonhosted.org/packages/f0/01/0169c095070a8cb97baf075246b8804390082ee189d344a6767eb89849cd/types_s3transfer-0.11.1.tar.gz", hash = "sha256:6ab89d4d76bcbf6d494582949963b4672347e8daa397d9790f3684b4fcf873c4", size = 14055 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/c3/4f8ff68fbf960021014a1b11a587e84cd4e1607d00d501bf5d43ea535168/types_s3transfer-0.11.0-py3-none-any.whl", hash = "sha256:923368fad78191fe36a99cab879f479e65f65a1769b75e33db7522d86a8777ea", size = 19478 },
+    { url = "https://files.pythonhosted.org/packages/0c/87/2452812a3d57a13af13a23239da6c781a079e508bc70a44df576ce76b7c1/types_s3transfer-0.11.1-py3-none-any.whl", hash = "sha256:ddb20d103361c2d7cf95e9e73468cdd12f049f503b1512e6fdfe5a66fa086d2d", size = 19487 },
 ]
 
 [[package]]
