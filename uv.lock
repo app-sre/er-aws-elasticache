@@ -95,7 +95,7 @@ wheels = [
 
 [[package]]
 name = "cdktf"
-version = "0.20.10"
+version = "0.20.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "constructs" },
@@ -103,9 +103,9 @@ dependencies = [
     { name = "publication" },
     { name = "typeguard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/eb/f2/053265dd541018aebe4e1c0d6b7f777004fe5f052abccbcdda578669cda1/cdktf-0.20.10.tar.gz", hash = "sha256:0f4b649f09e0b93742511efb7a6ac76f3789f83b8b97710cd9feca79f455f523", size = 1548169 }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/cc/de2c3b576f79a66a8599bb47a434f4c5425ede0b032904774902337beee4/cdktf-0.20.11.tar.gz", hash = "sha256:d25ed9d7a68d482a314da0096fcf67cc55765488777b75be69f359ed99c956d3", size = 1548614 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/60/6ed9a4e7fe0451e4ad358fa85c749e250576bb1152dae8ae6d63caa78911/cdktf-0.20.10-py3-none-any.whl", hash = "sha256:09f6f469531d7bee566070f297ddf7e68d892f80de24c1335eea6d08b0e39628", size = 1548423 },
+    { url = "https://files.pythonhosted.org/packages/cd/ce/1cefd47292ffb468e5e88cad30e8695273431d89eeefc19b332c05bc49b1/cdktf-0.20.11-py3-none-any.whl", hash = "sha256:98f607dd50506c1c85bc8b47c6b8f4b5607a9d87ad2f99f6819709a29abce101", size = 1548864 },
 ]
 
 [[package]]
@@ -177,7 +177,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = "~=1.35.47" },
-    { name = "cdktf", specifier = "==0.20.10" },
+    { name = "cdktf", specifier = "==0.20.11" },
     { name = "external-resources-io", specifier = "~=0.3.2" },
     { name = "pydantic", specifier = "~=2.10.3" },
 ]
