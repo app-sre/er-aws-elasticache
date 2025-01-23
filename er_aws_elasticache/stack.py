@@ -4,6 +4,7 @@ from cdktf import (
     TerraformOutput,
     TerraformResourceLifecycle,
     TerraformStack,
+    Token,
 )
 from cdktf_cdktf_provider_aws.elasticache_parameter_group import (
     ElasticacheParameterGroup,
@@ -90,11 +91,12 @@ class ElasticacheStack(TerraformStack):
             self,
             self.data.identifier,
             apply_immediately=self.data.apply_immediately,
-            at_rest_encryption_enabled=self.data.at_rest_encryption_enabled,
-            # no idea why this is a string
-            auto_minor_version_upgrade=str(
+            at_rest_encryption_enabled=Token.as_string(
+                self.data.at_rest_encryption_enabled
+            ),
+            auto_minor_version_upgrade=Token.as_string(
                 self.data.auto_minor_version_upgrade
-            ).lower(),
+            ),
             automatic_failover_enabled=self.data.automatic_failover_enabled,
             auth_token=auth_token,
             description=self.data.replication_group_description,
