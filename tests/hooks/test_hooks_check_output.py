@@ -1,5 +1,6 @@
 import pytest
-from post_checks import check
+
+from hooks.check_output import check
 
 
 @pytest.mark.parametrize(

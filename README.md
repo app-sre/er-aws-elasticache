@@ -80,5 +80,5 @@ Run the validation:
 
 ```bash
 export ER_INPUT_FILE=$PWD/tmp/input.json
-python validate_plan.py tmp/plan.json
+python hooks/validate_plan.py tmp/plan.json
 ```

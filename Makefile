@@ -10,9 +10,9 @@ format:
 image_tests:
 	# test /tmp must be empty
 	[ -z "$(shell ls -A /tmp)" ]
-	# validate_plan.py must exist
-	[ -f "validate_plan.py" ]
-	[ -f "post_checks.py" ]
+	# hooks must be copied
+	[ -d "hooks" ]
+	[ -d "hooks_lib" ]
 
 .PHONY: code_tests
 code_tests:
@@ -37,6 +37,7 @@ build:
 dev:
 	# Prepare local development environment
 	uv sync
+	mkdir -p .gen
 	# The CDKTF python module generation needs at least 12GB of memory!
 	$(CONTAINER_ENGINE) run --rm -it -v $(PWD)/:/home/app/src -v $(PWD)/.gen:/cdktf-providers:z --entrypoint cdktf-provider-sync quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:latest /cdktf-providers
 	cp sitecustomize.py $(SITE_PACKAGES_DIR)

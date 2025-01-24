@@ -57,7 +57,7 @@ def test_stack_elasticache_replication_group(synthesized: str) -> None:
         {
             "apply_immediately": True,
             "at_rest_encryption_enabled": True,
-            "auto_minor_version_upgrade": "false",
+            "auto_minor_version_upgrade": False,
             "automatic_failover_enabled": True,
             "depends_on": ["aws_elasticache_parameter_group.elasticache-example-01-pg"],
             "description": "test instance",

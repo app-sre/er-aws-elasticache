@@ -1,6 +1,6 @@
-FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:cdktf-0.20.9-tf-1.6.6-py-3.11-v0.4.0@sha256:7cbab92df7a7a12bc018dfd730d72dceaf196a02d40034d8d4702ca84fcb7d7d AS base
+FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:cdktf-0.20.11-tf-1.6.6-py-3.11-v0.5.0 AS base
 # keep in sync with pyproject.toml
-LABEL konflux.additional-tags="0.2.0"
+LABEL konflux.additional-tags="0.3.0"
 
 FROM base AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.5.24@sha256:2381d6aa60c326b71fd40023f921a0a3b8f91b14d5db6b90402e65a635053709 /uv /bin/uv
@@ -25,7 +25,9 @@ RUN uv lock --locked
 RUN uv sync --frozen --no-group dev --no-install-project --python /usr/bin/python3
 
 # the source code
-COPY README.md validate_plan.py post_checks.py ./
+COPY README.md ./
+COPY hooks ./hooks
+COPY hooks_lib ./hooks_lib
 COPY er_aws_elasticache ./er_aws_elasticache
 # Sync the project
 RUN uv sync --frozen --no-group dev

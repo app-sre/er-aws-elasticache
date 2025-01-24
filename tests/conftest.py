@@ -47,6 +47,10 @@ def raw_input_data() -> dict:
             "default_tags": [{"tags": {"app": "app-sre-infra"}}],
             "region": "us-east-1",
             "parameter_group_name": "elasticache-example-01-pg",
+            "environment": "production",
+            "service_updates_enabled": True,
+            "service_updates_severities": ["critical", "important"],
+            "service_updates_cooldown_days": None,
         },
         "provision": {
             "provision_provider": "aws",

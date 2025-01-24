@@ -9,12 +9,7 @@ from .stack import ElasticacheStack
 
 def get_ai_input() -> AppInterfaceInput:
     """Get the AppInterfaceInput from the input file."""
-    return parse_model(
-        AppInterfaceInput,
-        read_input_from_file(
-            file_path=os.environ.get("ER_INPUT_FILE", "/inputs/input.json"),
-        ),
-    )
+    return parse_model(AppInterfaceInput, read_input_from_file())
 
 
 def init_cdktf_app(ai_input: AppInterfaceInput, id_: str = "CDKTF") -> App:

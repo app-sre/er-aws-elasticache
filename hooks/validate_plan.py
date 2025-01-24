@@ -1,11 +1,9 @@
-import logging
-import os
-import sys
-from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+#!/usr/bin/env python
 
-from boto3 import Session
-from botocore.config import Config
+import logging
+import sys
+from collections.abc import Sequence
+
 from external_resources_io.input import parse_model, read_input_from_file
 from external_resources_io.terraform import (
     Action,
@@ -13,69 +11,12 @@ from external_resources_io.terraform import (
     TerraformJsonPlanParser,
 )
 
-if TYPE_CHECKING:
-    from mypy_boto3_ec2.client import EC2Client
-    from mypy_boto3_ec2.type_defs import SecurityGroupTypeDef
-    from mypy_boto3_ec2.type_defs import SubnetTypeDef as EC2SubnetTypeDef
-    from mypy_boto3_elasticache.client import ElastiCacheClient
-    from mypy_boto3_elasticache.type_defs import (
-        SubnetTypeDef as ElasticacheSubnetTypeDef,
-    )
-else:
-    ElastiCacheClient = EC2Client = ElasticacheSubnetTypeDef = EC2SubnetTypeDef = (
-        SecurityGroupTypeDef
-    ) = object
-
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
+from hooks_lib.aws_api import AWSApi
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logging.getLogger("botocore").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
-
-
-class AWSApi:
-    """AWS Api Class"""
-
-    def __init__(self, config_options: Mapping[str, Any]) -> None:
-        self.session = Session()
-        self.config = Config(**config_options)
-
-    @property
-    def client(self) -> ElastiCacheClient:
-        """Gets a boto client"""
-        return self.session.client("elasticache", config=self.config)
-
-    @property
-    def ec2_client(self) -> EC2Client:
-        """Gets a boto client"""
-        return self.session.client("ec2", config=self.config)
-
-    def get_cache_group_subnets(
-        self, cache_subnet_group_name: str
-    ) -> list[ElasticacheSubnetTypeDef]:
-        """Get the Elasticache subnet group"""
-        data = self.client.describe_cache_subnet_groups(
-            CacheSubnetGroupName=cache_subnet_group_name,
-        )["CacheSubnetGroups"]
-        if not data:
-            raise ValueError(f"Cache subnet group {cache_subnet_group_name} not found")
-        return data[0]["Subnets"]
-
-    def get_subnets(self, subnets: Sequence[str]) -> list[EC2SubnetTypeDef]:
-        """Get the subnet"""
-        data = self.ec2_client.describe_subnets(
-            SubnetIds=subnets,
-        )
-        return data["Subnets"]
-
-    def get_security_groups(
-        self, security_groups: Sequence[str]
-    ) -> list[SecurityGroupTypeDef]:
-        """Get the subnet"""
-        data = self.ec2_client.describe_security_groups(
-            GroupIds=security_groups,
-        )
-        return data["SecurityGroups"]
 
 
 class ElasticachePlanValidator:
@@ -190,12 +131,7 @@ class ElasticachePlanValidator:
 
 
 if __name__ == "__main__":
-    app_interface_input = parse_model(
-        AppInterfaceInput,
-        read_input_from_file(
-            file_path=os.environ.get("ER_INPUT_FILE", "/inputs/input.json"),
-        ),
-    )
+    app_interface_input = parse_model(AppInterfaceInput, read_input_from_file())
     logger.info("Running Elasticache terraform plan validation")
     plan = TerraformJsonPlanParser(plan_path=sys.argv[1])
     validator = ElasticachePlanValidator(plan, app_interface_input)

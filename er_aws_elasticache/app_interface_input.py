@@ -48,6 +48,12 @@ class ElasticacheData(BaseModel):
     tags: dict[str, Any] | None = None
     default_tags: Sequence[dict[str, Any]] | None = None
 
+    # service updates related
+    environment: str = "production"
+    service_updates_enabled: bool = True
+    service_updates_severities: Sequence[str] = ["critical", "important"]
+    service_updates_cooldown_days: int | None = None
+
     # aws_elasticache_replication_group
     apply_immediately: bool = False
     at_rest_encryption_enabled: bool | None = None
