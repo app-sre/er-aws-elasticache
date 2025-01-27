@@ -178,7 +178,7 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = "~=1.35.47" },
     { name = "cdktf", specifier = "==0.20.10" },
-    { name = "external-resources-io", specifier = "~=0.3.2" },
+    { name = "external-resources-io", specifier = "~=0.4.1" },
     { name = "pydantic", specifier = "~=2.10.3" },
 ]
 
@@ -193,14 +193,14 @@ dev = [
 
 [[package]]
 name = "external-resources-io"
-version = "0.3.3"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/2b/4fc45b07a0a4d5dccf43111deb7a4e22e0e6e787b218eb9e690ff41c176c/external_resources_io-0.3.3.tar.gz", hash = "sha256:2a000e86e12bb9b0ec8b0a05d39ea6353dc35566fbb43d441141420cf5e19736", size = 4680 }
+sdist = { url = "https://files.pythonhosted.org/packages/17/cf/e7ed057aa4cefc68c50c5ff9ba07aad23d6f77db165ab07390bfe0a28498/external_resources_io-0.4.1.tar.gz", hash = "sha256:3f4037f7842f5b22a01f8fb8fa0229174977cbf71d0e8a0c5bcda79fe8eaa200", size = 5121 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/0e/5658718b2de6c59ac4a65b4e9810bf4eda2ed06b7ea42c18175d5c1a9e01/external_resources_io-0.3.3-py3-none-any.whl", hash = "sha256:3bda8cbe63adbf2f393767e2045b32b6c3ce8f883a5684fda72fb7b5be8daa7a", size = 5000 },
+    { url = "https://files.pythonhosted.org/packages/4d/d3/2887eebbe25bea638e86d9e3f4bb16e9c2d28c1b1ddc36a12fe15d3863c0/external_resources_io-0.4.1-py3-none-any.whl", hash = "sha256:a736419b8a95b1d7ed6374d9b0212cfa29edafa939c16e5130b6fb179610c6de", size = 5424 },
 ]
 
 [[package]]
