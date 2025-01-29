@@ -12,7 +12,6 @@ from pytest_mock import MockerFixture
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks.post_apply import (
     default_cooldown,
-    dry_run_mode,
     main,
     terraform_changes,
 )
@@ -67,27 +66,6 @@ def test_default_cooldown(
 
 
 @pytest.mark.parametrize(
-    ("changes", "expected_exit"),
-    [
-        (True, 1),
-        (False, None),
-    ],
-)
-def test_dry_run_mode(
-    mocker: MockerFixture, *, changes: bool, expected_exit: int | None
-) -> None:
-    service_updates = [SERVICE_UPDATE_ITEM]
-    sys_exit_mock = mocker.patch("sys.exit")
-
-    dry_run_mode(service_updates, changes=changes)
-
-    if expected_exit:
-        sys_exit_mock.assert_called_once_with(expected_exit)
-    else:
-        sys_exit_mock.assert_not_called()
-
-
-@pytest.mark.parametrize(
     (
         "service_updates",
         "terraform_changes_flag",
@@ -121,8 +99,6 @@ def test_main(  # noqa: PLR0913
     mocker.patch(
         "hooks.post_apply.terraform_changes", return_value=terraform_changes_flag
     )
-    mocker.patch("hooks.post_apply.dry_run_mode")
-
     main(mock_plan, ai_input, dry_run=dry_run_flag)
 
     if expected_apply_call:

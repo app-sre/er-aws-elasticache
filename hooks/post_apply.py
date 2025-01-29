@@ -18,7 +18,6 @@ from external_resources_io.terraform import (
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib import ServiceUpdatesManager
-from hooks_lib.service_updates import ServiceUpdate
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logging.getLogger("botocore").setLevel(logging.ERROR)
@@ -48,21 +47,6 @@ def default_cooldown(environment: str) -> int:
     return default
 
 
-def dry_run_mode(service_updates: list[ServiceUpdate], *, changes: bool) -> None:
-    """Handle dry-run mode."""
-    logger.info("Service updates available:")
-    for su in service_updates:
-        logger.info(
-            f"Name={su.name} Release Date={su.release_date:%Y-%m-%d} Severity={su.severity}"
-        )
-
-    if changes:
-        logger.error(
-            "Some service updates not applied (yet) and resource changes detected. Aborting."
-        )
-        sys.exit(1)
-
-
 def main(
     plan: TerraformJsonPlanParser,
     app_interface_input: AppInterfaceInput,
@@ -72,6 +56,11 @@ def main(
     """Ensure that no service updates are in progress."""
     if not app_interface_input.data.service_updates_enabled:
         logger.info("Automatic service updates are disabled.")
+        return
+
+    if terraform_changes(plan):
+        # do not do anything if there are resource changes
+        logger.info("Resource changes detected. Skipping any pending service updates.")
         return
 
     sumgr = ServiceUpdatesManager(
@@ -92,14 +81,12 @@ def main(
         # No service updates available
         return
 
-    changes = terraform_changes(plan)
     if dry_run:
-        dry_run_mode(service_updates, changes=changes)
-        return
-
-    if changes:
-        # do not do anything if there are resource changes
-        logger.info("Resource changes detected. Skipping any pending service updates.")
+        logger.info("Service updates available:")
+        for su in service_updates:
+            logger.info(
+                f"Name={su.name} Release Date={su.release_date:%Y-%m-%d} Severity={su.severity}"
+            )
         return
 
     # Apply the most recent service update
