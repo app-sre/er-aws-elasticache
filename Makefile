@@ -14,7 +14,7 @@ image_tests:
 	[ -d "hooks" ]
 	[ -d "hooks_lib" ]
 	# test all files in ./hooks are executable
-	[ -z "$(shell find hooks -type f -not -executable)" ]
+	[ -z "$(shell find hooks -type f -not -executable ! -name "__init__.py")" ]
 
 .PHONY: code_tests
 code_tests:
