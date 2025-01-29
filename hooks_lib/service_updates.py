@@ -75,7 +75,10 @@ class ServiceUpdatesManager:
         )
 
         if wait_for_completion:
-            logger.info("Waiting for service update to complete...")
+            msg = "Waiting for service update to complete..."
+            logger.info(msg)
+            start_time = time.time()
             while self.update_in_progress:
-                print(".", end="", flush=True)  # noqa: T201
-                time.sleep(30)
+                time.sleep(60)
+                elapsed_time = int(time.time() - start_time)
+                logger.info(f"{msg} ({elapsed_time // 60}m)")
