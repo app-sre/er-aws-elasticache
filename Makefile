@@ -13,6 +13,8 @@ image_tests:
 	# hooks must be copied
 	[ -d "hooks" ]
 	[ -d "hooks_lib" ]
+	# test all files in ./hooks are executable
+	[ -z "$(shell find hooks -type f -not -executable)" ]
 
 .PHONY: code_tests
 code_tests:
