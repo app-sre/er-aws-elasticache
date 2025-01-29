@@ -26,11 +26,10 @@ logger = logging.getLogger(__name__)
 
 def terraform_changes(plan: TerraformJsonPlanParser) -> bool:
     """Check if there are any terraform changes"""
-    return bool([
-        c
+    return any(
+        c.change and c.change.actions != [Action.ActionNoop]
         for c in plan.plan.resource_changes
-        if c.change and c.change.actions != [Action.ActionNoop]
-    ])
+    )
 
 
 def default_cooldown(environment: str) -> int:
