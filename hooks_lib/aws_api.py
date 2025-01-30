@@ -1,22 +1,30 @@
 import logging
 import operator
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from boto3 import Session
 from botocore.config import Config
-from mypy_boto3_ec2.client import EC2Client
-from mypy_boto3_ec2.type_defs import SecurityGroupTypeDef
-from mypy_boto3_ec2.type_defs import SubnetTypeDef as EC2SubnetTypeDef
-from mypy_boto3_elasticache.client import ElastiCacheClient
-from mypy_boto3_elasticache.literals import UpdateActionStatusType
-from mypy_boto3_elasticache.type_defs import (
-    ProcessedUpdateActionTypeDef,
-    UpdateActionTypeDef,
-)
-from mypy_boto3_elasticache.type_defs import (
-    SubnetTypeDef as ElasticacheSubnetTypeDef,
-)
+
+if TYPE_CHECKING:
+    from mypy_boto3_ec2.client import EC2Client
+    from mypy_boto3_ec2.type_defs import SecurityGroupTypeDef
+    from mypy_boto3_ec2.type_defs import SubnetTypeDef as EC2SubnetTypeDef
+    from mypy_boto3_elasticache.client import ElastiCacheClient
+    from mypy_boto3_elasticache.literals import UpdateActionStatusType
+    from mypy_boto3_elasticache.type_defs import (
+        ProcessedUpdateActionTypeDef,
+        UpdateActionTypeDef,
+    )
+    from mypy_boto3_elasticache.type_defs import (
+        SubnetTypeDef as ElasticacheSubnetTypeDef,
+    )
+else:
+    EC2Client = SecurityGroupTypeDef = EC2SubnetTypeDef = ElastiCacheClient = (
+        UpdateActionStatusType
+    ) = ProcessedUpdateActionTypeDef = UpdateActionTypeDef = (
+        ElasticacheSubnetTypeDef
+    ) = object
 
 logger = logging.getLogger(__name__)
 
