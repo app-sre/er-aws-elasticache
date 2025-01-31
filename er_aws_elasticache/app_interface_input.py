@@ -147,6 +147,23 @@ class ElasticacheData(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def no_older_versions_for_valkey(self) -> Self:
+        """Check for Valkey engine version."""
+        if self.engine == "valkey" and self.engine_version.startswith(("5.", "6.")):
+            raise ValueError("Valkey requires an engine_version 7.2 or higher")
+        return self
+
+    @model_validator(mode="after")
+    def check_parameter_group_family(self) -> Self:
+        """Check if the parameter group family matches the engine"""
+        family = f"{self.engine}{self.engine_version[0]}"
+        if self.parameter_group and family not in self.parameter_group.family:
+            raise ValueError(
+                f"Parameter group family must match the engine. Expected {family}, got {self.parameter_group.family}"
+            )
+        return self
+
 
 class AppInterfaceInput(BaseModel):
     """Input model for AWS Elasticache"""
