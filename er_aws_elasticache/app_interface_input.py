@@ -57,8 +57,8 @@ class ElasticacheData(BaseModel):
     # aws_elasticache_replication_group
     apply_immediately: bool = False
     at_rest_encryption_enabled: bool | None = None
-    auto_minor_version_upgrade: bool | None = None
-    automatic_failover_enabled: bool | None = None
+    auto_minor_version_upgrade: bool | None = True
+    automatic_failover_enabled: bool | None = True
     reset_password: str | None = None
     replication_group_description: str = "elasticache replication group"
     engine: str
