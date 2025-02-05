@@ -2,6 +2,6 @@
   "language": "python",
   "app": "er-aws-elasticache",
   "sendCrashReports": "false",
-  "terraformProviders": ["random@ = 3.6.3", "aws@ = 5.84.0"],
+  "terraformProviders": [],
   "projectId": "49778ce7-523f-482c-a0e7-bad21132b58c"
 }

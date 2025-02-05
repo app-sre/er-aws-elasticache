@@ -1,14 +1,9 @@
-FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:cdktf-0.20.11-tf-1.6.6-py-3.11-v0.5.0-1@sha256:0c6f11a1a4057ceb6ea9fb9f5ec7eb0a5a2bdf7730416cbddda87b0f509e59a5 AS base
+FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:cdktf-0.20.11-tf-1.6.6-py-3.12-v0.6.0-1 AS base
 # keep in sync with pyproject.toml
-LABEL konflux.additional-tags="0.3.1"
+LABEL konflux.additional-tags="0.3.2"
 
 FROM base AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.5.28@sha256:8bd47d593fb4a8ac5820c08265b651570e99e3c47d3247980a704174784c6a7f /uv /bin/uv
-
-COPY cdktf.json ./
-# Download all necessary CDKTF providers and build the python cdktf modules.
-# The python modules must be stored in the .gen directory because cdktf needs them there.
-RUN cdktf-provider-sync .gen
 
 # Python and UV related variables
 ENV \
@@ -18,11 +13,13 @@ ENV \
     UV_NO_CACHE=true \
     UV_NO_PROGRESS=true
 
-COPY pyproject.toml uv.lock ./
+COPY cdktf.json pyproject.toml uv.lock ./
 # Test lock file is up to date
 RUN uv lock --locked
 # Install dependencies
 RUN uv sync --frozen --no-group dev --no-install-project --python /usr/bin/python3
+# Download all necessary terraform providers
+RUN cdktf-provider-sync
 
 # the source code
 COPY README.md ./
@@ -53,7 +50,7 @@ RUN uv sync --frozen
 COPY Makefile ./
 COPY tests ./tests
 
-RUN make test
+RUN make _test
 
 # Empty /tmp again because the test stage might have created files there, e.g. JSII_RUNTIME_PACKAGE_CACHE_ROOT
 # and we want to run this test image in the dev environment

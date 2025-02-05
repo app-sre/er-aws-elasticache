@@ -28,18 +28,16 @@ dependency_tests:
 	python -c "import cdktf_cdktf_provider_random"
 	python -c "import cdktf_cdktf_provider_aws"
 
+_test: image_tests code_tests dependency_tests
+
 .PHONY: test
-test: image_tests code_tests dependency_tests
+test:
+	$(CONTAINER_ENGINE) build --progress plain --target test -t er-aws-elasticache:test .
 
 .PHONY: build
 build:
-	$(CONTAINER_ENGINE) build --progress plain -t er-aws-elasticache:test .
+	$(CONTAINER_ENGINE) build --progress plain --target prod -t er-aws-elasticache:prod .
 
 .PHONY: dev
 dev:
-	# Prepare local development environment
 	uv sync
-	mkdir -p .gen
-	# The CDKTF python module generation needs at least 12GB of memory!
-	$(CONTAINER_ENGINE) run --rm -it -v $(PWD)/:/home/app/src -v $(PWD)/.gen:/cdktf-providers:z --entrypoint cdktf-provider-sync quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:latest /cdktf-providers
-	cp sitecustomize.py $(SITE_PACKAGES_DIR)
