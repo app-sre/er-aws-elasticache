@@ -1,4 +1,4 @@
-FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:cdktf-0.20.11-tf-1.6.6-py-3.12-v0.6.0-1 AS base
+FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdktf-main:cdktf-0.20.11-tf-1.6.6-py-3.12-v0.6.0-1@sha256:cbd7d366bd573c7346956083fe94f3145198be0630744d30bea3271925fcfe9a AS base
 # keep in sync with pyproject.toml
 LABEL konflux.additional-tags="0.3.2"
 
