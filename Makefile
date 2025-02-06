@@ -28,7 +28,7 @@ dependency_tests:
 	python -c "import cdktf_cdktf_provider_random"
 	python -c "import cdktf_cdktf_provider_aws"
 
-_test: image_tests code_tests dependency_tests
+in_container_test: image_tests code_tests dependency_tests
 
 .PHONY: test
 test:

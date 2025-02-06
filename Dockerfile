@@ -50,7 +50,7 @@ RUN uv sync --frozen
 COPY Makefile ./
 COPY tests ./tests
 
-RUN make _test
+RUN make in_container_test
 
 # Empty /tmp again because the test stage might have created files there, e.g. JSII_RUNTIME_PACKAGE_CACHE_ROOT
 # and we want to run this test image in the dev environment
