@@ -112,6 +112,15 @@ class ElasticacheData(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def no_redis_seven(self) -> Self:
+        """We don't support Redis 7+"""
+        if self.engine == "redis" and self.engine_version.startswith("7."):
+            raise ValueError(
+                "Redis 7.x is not supported. Please use the Valkey engine instead."
+            )
+        return self
+
+    @model_validator(mode="after")
     def multi_az_needs_automatic_failover(self) -> Self:
         """Multi-AZ is only supported with automatic failover enabled"""
         if self.multi_az_enabled and not self.automatic_failover_enabled:
