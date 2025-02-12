@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import logging
+import os
 import sys
 from collections.abc import Sequence
 
@@ -133,7 +134,11 @@ class ElasticachePlanValidator:
 if __name__ == "__main__":
     app_interface_input = parse_model(AppInterfaceInput, read_input_from_file())
     logger.info("Running Elasticache terraform plan validation")
-    plan = TerraformJsonPlanParser(plan_path=sys.argv[1])
+    plan_json = os.environ.get("PLAN_FILE_JSON")
+    if not plan_json:
+        logger.error("PLAN_FILE_JSON environment variable not set")
+        sys.exit(1)
+    plan = TerraformJsonPlanParser(plan_path=plan_json)
     validator = ElasticachePlanValidator(plan, app_interface_input)
     if not validator.validate():
         logger.error(validator.errors)

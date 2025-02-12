@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -23,11 +24,12 @@ def check(outputs: Mapping) -> bool:
 def main() -> None:
     """Main function."""
     logger.info("Running post checks ...")
-    if len(sys.argv) != 2:  # noqa: PLR2004
-        logger.error("Usage: post_checks.py <output_json>")
+    output_json_path = os.environ.get("OUTPUTS_FILE")
+    if not output_json_path:
+        logger.error("PLAN_FILE_JSON environment variable not set")
         sys.exit(1)
 
-    output_json = Path(sys.argv[1])
+    output_json = Path(output_json_path)
     if not check(json.loads(output_json.read_text())):
         sys.exit(1)
     logger.info("Post checks completed.")
