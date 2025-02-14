@@ -109,7 +109,7 @@ wheels = [
 
 [[package]]
 name = "cdktf-cdktf-provider-aws"
-version = "19.51.0"
+version = "19.53.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cdktf" },
@@ -118,9 +118,9 @@ dependencies = [
     { name = "publication" },
     { name = "typeguard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/c4/0cc1904231a00fab8c0c5c6b7a10159f13f7933df4a96de06aaa8c6b8325/cdktf_cdktf_provider_aws-19.51.0.tar.gz", hash = "sha256:f9d986eb98c144ffbc61225e3a355b27cb01e3e22251f8e3e8dd12caaa6a9d88", size = 49940055 }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/ba/7944a1b690d904cd690a775f20794feedfe8b113486a473206e6956e4bb8/cdktf_cdktf_provider_aws-19.53.0.tar.gz", hash = "sha256:b806b1646e72441d51bfc039dca4bd2916adb2b06b000bd077960e5dd6705464", size = 50029695 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/d9/10a07c8a45b92f7ab1da5e0e1cfa0c240c66a92a70073b2d3e3cb8a6e426/cdktf_cdktf_provider_aws-19.51.0-py3-none-any.whl", hash = "sha256:c0ff96ced60405700181d20702b02b0f411e0d622648ab86fe89773e02d890d4", size = 52837532 },
+    { url = "https://files.pythonhosted.org/packages/0f/72/570f8144ab703042049ec64641e191ff4f10b049a77590cbe83ab182d391/cdktf_cdktf_provider_aws-19.53.0-py3-none-any.whl", hash = "sha256:405c3083beb4f58ab5ab3b54d47577d50a7d6f4b41afd78f51d3e62491bacaa4", size = 52924762 },
 ]
 
 [[package]]
@@ -207,7 +207,7 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = "~=1.36.4" },
     { name = "cdktf", specifier = "==0.20.11" },
-    { name = "cdktf-cdktf-provider-aws", specifier = "~=19.51.0" },
+    { name = "cdktf-cdktf-provider-aws", specifier = "~=19.53.0" },
     { name = "cdktf-cdktf-provider-random", specifier = "~=11.0.3" },
     { name = "external-resources-io", specifier = ">=0.4.1" },
     { name = "pip", specifier = ">=25.0" },
