@@ -27,14 +27,14 @@ RUN uv lock --locked
 # Install dependencies
 RUN uv sync --frozen --no-group dev --no-install-project --python /usr/bin/python3
 
-# the python source code
+# the source code
+COPY README.md ./
 COPY hooks ./hooks
 COPY hooks_lib ./hooks_lib
 COPY er_aws_elasticache ./er_aws_elasticache
 # Sync the project
 RUN uv sync --frozen --no-group dev
 
-COPY README.md ./
 
 FROM base AS prod
 # get cdktf providers

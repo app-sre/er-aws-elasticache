@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 import logging
 import sys
 
@@ -8,9 +7,8 @@ from external_resources_io.input import parse_model, read_input_from_file
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib import ServiceUpdatesManager
+from hooks_lib.log import setup_logging
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logging.getLogger("botocore").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
@@ -30,5 +28,6 @@ def main(app_interface_input: AppInterfaceInput) -> None:
 
 
 if __name__ == "__main__":
+    setup_logging()
     app_interface_input = parse_model(AppInterfaceInput, read_input_from_file())
     main(app_interface_input)

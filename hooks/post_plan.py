@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import logging
-import os
 import sys
 from collections.abc import Sequence
 
@@ -14,9 +13,9 @@ from external_resources_io.terraform import (
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib.aws_api import AWSApi
+from hooks_lib.env import PLAN_FILE_JSON
+from hooks_lib.log import setup_logging
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-logging.getLogger("botocore").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
@@ -132,13 +131,10 @@ class ElasticachePlanValidator:
 
 
 if __name__ == "__main__":
+    setup_logging()
     app_interface_input = parse_model(AppInterfaceInput, read_input_from_file())
     logger.info("Running Elasticache terraform plan validation")
-    plan_json = os.environ.get("PLAN_FILE_JSON")
-    if not plan_json:
-        logger.error("PLAN_FILE_JSON environment variable not set")
-        sys.exit(1)
-    plan = TerraformJsonPlanParser(plan_path=plan_json)
+    plan = TerraformJsonPlanParser(plan_path=PLAN_FILE_JSON)
     validator = ElasticachePlanValidator(plan, app_interface_input)
     if not validator.validate():
         logger.error(validator.errors)
