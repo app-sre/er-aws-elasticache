@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 def check(outputs: Mapping) -> bool:
     """Check function."""
     for key in outputs:
-        if key.endswith("__db_port"):
+        if key == "db_port":
             # port output found
             return True
-    logger.error("Port output not found.")
+    logger.error("db_port output not found.")
     return False
 
 

@@ -1,10 +1,10 @@
-import os
-
-from cdktf import App
 from external_resources_io.input import parse_model, read_input_from_file
+from external_resources_io.terraform import (
+    create_backend_tf_file,
+    create_tf_vars_json,
+)
 
 from .app_interface_input import AppInterfaceInput
-from .stack import ElasticacheStack
 
 
 def get_ai_input() -> AppInterfaceInput:
@@ -12,17 +12,13 @@ def get_ai_input() -> AppInterfaceInput:
     return parse_model(AppInterfaceInput, read_input_from_file())
 
 
-def init_cdktf_app(ai_input: AppInterfaceInput, id_: str = "CDKTF") -> App:
-    """Initialize the CDKTF app and all the stacks."""
-    app = App(outdir=os.environ.get("ER_OUTDIR", None))
-    ElasticacheStack(app, id_, ai_input)
-    return app
-
-
 def main() -> None:
-    """Proper entry point for the CDKTF app."""
-    app = init_cdktf_app(get_ai_input())
-    app.synth()
+    """Proper entry point for the module."""
+    ai_input = get_ai_input()
+    create_backend_tf_file(ai_input.provision)
+    create_tf_vars_json(ai_input.data)
+
+    # change ID at the first startup!!! migration
 
 
 if __name__ == "__main__":
