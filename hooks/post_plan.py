@@ -13,7 +13,7 @@ from external_resources_io.terraform import (
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib.aws_api import AWSApi
-from hooks_lib.env import PLAN_FILE_JSON
+from hooks_lib.env import Env
 from hooks_lib.log import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     setup_logging()
     app_interface_input = parse_model(AppInterfaceInput, read_input_from_file())
     logger.info("Running Elasticache terraform plan validation")
-    plan = TerraformJsonPlanParser(plan_path=PLAN_FILE_JSON)
+    plan = TerraformJsonPlanParser(plan_path=Env.PLAN_FILE_JSON)
     validator = ElasticachePlanValidator(plan, app_interface_input)
     if not validator.validate():
         logger.error(validator.errors)

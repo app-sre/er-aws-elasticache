@@ -8,17 +8,17 @@ from hooks.post_output import check
     [
         (
             {
-                "glitchtip-dev-elasticache__db_auth_token": {
+                "db_auth_token": {
                     "sensitive": True,
                     "type": "string",
                     "value": "token",
                 },
-                "glitchtip-dev-elasticache__db_endpoint": {
+                "db_endpoint": {
                     "sensitive": False,
                     "type": "string",
                     "value": "hostname",
                 },
-                "glitchtip-dev-elasticache__db_port": {
+                "db_port": {
                     "sensitive": False,
                     "type": "number",
                     "value": 6379,
@@ -28,12 +28,12 @@ from hooks.post_output import check
         ),
         (
             {
-                "glitchtip-dev-elasticache__db_auth_token": {
+                "db_auth_token": {
                     "sensitive": True,
                     "type": "string",
                     "value": "token",
                 },
-                "glitchtip-dev-elasticache__db_endpoint": {
+                "db_endpoint": {
                     "sensitive": False,
                     "type": "string",
                     "value": "hostname",

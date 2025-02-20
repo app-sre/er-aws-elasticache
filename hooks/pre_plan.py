@@ -5,7 +5,7 @@ import subprocess  # noqa: S404
 import sys
 from collections.abc import Sequence
 
-from hooks_lib.env import ACTION_DELETE
+from hooks_lib.env import Env
 from hooks_lib.log import setup_logging
 from hooks_lib.terraform import tf_run
 
@@ -34,7 +34,7 @@ def migrate_resources(resources: Sequence[str]) -> bool:
 
 def main() -> None:
     """Run terraform migrations."""
-    if ACTION_DELETE:
+    if Env.ACTION == "delete":
         # do nothing
         return
 

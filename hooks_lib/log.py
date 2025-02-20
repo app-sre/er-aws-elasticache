@@ -1,7 +1,7 @@
 import logging
 import logging.config
 
-from .env import DRY_RUN, LOG_LEVEL
+from .env import Env
 
 
 class DryRunFilter(logging.Filter):
@@ -25,7 +25,7 @@ def setup_logging() -> None:
     logging.config.dictConfig({
         "version": 1,
         "disable_existing_loggers": False,
-        "filters": {"prefix_filter": {"()": DryRunFilter, "dry_run": DRY_RUN}},
+        "filters": {"prefix_filter": {"()": DryRunFilter, "dry_run": Env.DRY_RUN}},
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
@@ -34,6 +34,6 @@ def setup_logging() -> None:
             }
         },
         "formatters": {"base": {"format": "%(prefix)s%(levelname)s - %(message)s"}},
-        "root": {"level": LOG_LEVEL, "handlers": ["console"]},
+        "root": {"level": Env.LOG_LEVEL, "handlers": ["console"]},
         "botocore": {"level": "ERROR", "handlers": ["console"]},
     })

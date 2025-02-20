@@ -1,6 +1,6 @@
 import contextlib
 from collections.abc import Sequence
-from typing import Any, Literal, Self
+from typing import Any, Self
 
 from external_resources_io.input import AppInterfaceProvision
 from pydantic import BaseModel, field_validator, model_validator

@@ -9,7 +9,7 @@ from external_resources_io.terraform import Action, TerraformJsonPlanParser
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib import ServiceUpdatesManager
-from hooks_lib.env import DRY_RUN, PLAN_FILE_JSON
+from hooks_lib.env import Env
 from hooks_lib.log import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,6 @@ def main(
 if __name__ == "__main__":
     setup_logging()
     app_interface_input = parse_model(AppInterfaceInput, read_input_from_file())
-    plan = TerraformJsonPlanParser(plan_path=PLAN_FILE_JSON)
-    main(plan, app_interface_input, dry_run=DRY_RUN)
+    plan = TerraformJsonPlanParser(plan_path=Env.PLAN_FILE_JSON)
+    main(plan, app_interface_input, dry_run=Env.DRY_RUN)
     logger.info("Post apply completed.")
