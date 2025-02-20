@@ -6,8 +6,8 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from hooks_lib.env import Env
-from hooks_lib.log import setup_logging
+from external_resources_io.config import Config
+from external_resources_io.log import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def check(outputs: Mapping) -> bool:
 def main() -> None:
     """Main function."""
     logger.info("Running post checks ...")
-    output_json = Path(Env.OUTPUTS_FILE)
+    output_json = Path(Config().outputs_file)
     if not check(json.loads(output_json.read_text())):
         sys.exit(1)
     logger.info("Post checks completed.")

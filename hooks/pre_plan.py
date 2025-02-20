@@ -5,9 +5,9 @@ import subprocess  # noqa: S404
 import sys
 from collections.abc import Sequence
 
-from hooks_lib.env import Env
-from hooks_lib.log import setup_logging
-from hooks_lib.terraform import tf_run
+from external_resources_io.config import Config
+from external_resources_io.log import setup_logging
+from external_resources_io.terraform import terraform_run
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +27,14 @@ def migrate_resources(resources: Sequence[str]) -> bool:
             else f"{resource_class}.this"
         )
         logger.info(f"Migrate resource: {resource} -> {new_resource}")
-        tf_run(["state", "mv", resource, new_resource])
+        terraform_run(["state", "mv", resource, new_resource])
         changes = True
     return changes
 
 
 def main() -> None:
     """Run terraform migrations."""
-    if Env.ACTION == "delete":
+    if Config().action == "delete":
         # do nothing
         return
 

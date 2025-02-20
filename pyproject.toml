@@ -8,11 +8,13 @@ readme = "README.md"
 requires-python = "~= 3.12.0"
 dependencies = [
     "boto3 ~=1.36.4",
-    "environs>=14.1.1",
-    "external-resources-io>=0.5.0",
+    "external-resources-io>=0.6.0",
     "pip>=25.0",
     "pydantic ~=2.10.3",
 ]
+
+[tool.uv.sources]
+external-resources-io = { git = "https://github.com/app-sre/external-resources-io.git", rev = "bb20d4ad4b3de92f3dd0b14898cf51f437c3d2f1" }
 
 [project.urls]
 homepage = "https://github.com/app-sre/er-aws-elasticache"

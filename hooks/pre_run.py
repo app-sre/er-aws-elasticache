@@ -4,10 +4,10 @@ import logging
 import sys
 
 from external_resources_io.input import parse_model, read_input_from_file
+from external_resources_io.log import setup_logging
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib import ServiceUpdatesManager
-from hooks_lib.log import setup_logging
 
 logger = logging.getLogger(__name__)
 
