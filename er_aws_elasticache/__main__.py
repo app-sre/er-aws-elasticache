@@ -18,8 +18,6 @@ def main() -> None:
     create_backend_tf_file(ai_input.provision)
     create_tf_vars_json(ai_input.data)
 
-    # change ID at the first startup!!! migration
-
 
 if __name__ == "__main__":
     main()
