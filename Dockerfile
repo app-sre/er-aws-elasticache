@@ -3,7 +3,7 @@ FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-cdktf-main/er-base-cdkt
 LABEL konflux.additional-tags="0.3.2"
 
 FROM base AS builder
-COPY --from=ghcr.io/astral-sh/uv:0.5.28@sha256:8bd47d593fb4a8ac5820c08265b651570e99e3c47d3247980a704174784c6a7f /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6.2@sha256:01ddc2a91588f1210396433c79c9f58848ad668ea05bda895f5a1a31f2e5b64f /uv /bin/uv
 
 # Python and UV related variables
 ENV \
@@ -42,7 +42,7 @@ ENV \
     PYTHONPATH="$APP/.gen"
 
 FROM prod AS test
-COPY --from=ghcr.io/astral-sh/uv:0.5.28@sha256:8bd47d593fb4a8ac5820c08265b651570e99e3c47d3247980a704174784c6a7f /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6.2@sha256:01ddc2a91588f1210396433c79c9f58848ad668ea05bda895f5a1a31f2e5b64f /uv /bin/uv
 
 # install test dependencies
 RUN uv sync --frozen
