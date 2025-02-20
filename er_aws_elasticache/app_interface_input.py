@@ -1,4 +1,3 @@
-import contextlib
 from collections.abc import Sequence
 from typing import Any, Self
 
@@ -178,8 +177,8 @@ class ElasticacheData(BaseModel):
         """Set default tags for terraform"""
         if not self.default_tags:
             return self
-        with contextlib.suppress(KeyError):
-            self.default_tags_tf = self.default_tags[0]["tags"]
+        if tags := self.default_tags[0].get("tags"):
+            self.default_tags_tf = tags
         return self
 
 
