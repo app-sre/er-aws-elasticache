@@ -2,9 +2,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
-from hooks.pre_hook import (
-    main,
-)
+from hooks.pre_run import main
 from hooks_lib.service_updates import ServiceUpdatesManager
 
 

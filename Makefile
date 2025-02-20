@@ -5,14 +5,21 @@ CONTAINER_ENGINE ?= $(shell which podman >/dev/null 2>&1 && echo podman || echo 
 format:
 	uv run ruff check
 	uv run ruff format
+	terraform fmt terraform
 
 .PHONY: image_tests
 image_tests:
-	# test /tmp must be empty
-	[ -z "$(shell ls -A /tmp)" ]
 	# hooks must be copied
 	[ -d "hooks" ]
 	[ -d "hooks_lib" ]
+
+	# sources must be copied
+	[ -d "$$TERRAFORM_MODULE_SRC_DIR" ]
+
+	# test the terrform providers are downloaded
+	[ -d "$$TF_PLUGIN_CACHE_DIR/registry.terraform.io/hashicorp/aws" ]
+	[ -d "$$TF_PLUGIN_CACHE_DIR/registry.terraform.io/hashicorp/random" ]
+
 	# test all files in ./hooks are executable
 	[ -z "$(shell find hooks -type f -not -executable ! -name "__init__.py")" ]
 
@@ -20,15 +27,11 @@ image_tests:
 code_tests:
 	uv run ruff check --no-fix
 	uv run ruff format --check
+	terraform fmt -check=true "$$TERRAFORM_MODULE_SRC_DIR"
 	uv run mypy
-	uv run pytest -vv --cov=er_aws_elasticache --cov-report=term-missing --cov-report xml
+	uv run pytest -vv --cov=er_aws_elasticache --cov=hooks --cov=hooks_lib --cov-report=term-missing --cov-report xml
 
-.PHONY: dependency_tests
-dependency_tests:
-	python -c "import cdktf_cdktf_provider_random"
-	python -c "import cdktf_cdktf_provider_aws"
-
-in_container_test: image_tests code_tests dependency_tests
+in_container_test: image_tests code_tests
 
 .PHONY: test
 test:
@@ -41,3 +44,7 @@ build:
 .PHONY: dev
 dev:
 	uv sync
+
+.PHONY: generate-variables-tf
+generate-variables-tf:
+	external-resources-io tf generate-variables-tf er_aws_elasticache.app_interface_input.AppInterfaceInput --output terraform/variables.tf
