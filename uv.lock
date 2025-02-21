@@ -137,7 +137,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = "~=1.36.4" },
-    { name = "external-resources-io", git = "https://github.com/app-sre/external-resources-io.git?rev=bb20d4ad4b3de92f3dd0b14898cf51f437c3d2f1" },
+    { name = "external-resources-io", specifier = ">=0.6.0" },
     { name = "pip", specifier = ">=25.0" },
     { name = "pydantic", specifier = "~=2.10.3" },
 ]
@@ -145,7 +145,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "boto3-stubs-lite", extras = ["elasticache", "ec2"], specifier = "~=1.36.4" },
-    { name = "external-resources-io", extras = ["cli"], git = "https://github.com/app-sre/external-resources-io.git?rev=bb20d4ad4b3de92f3dd0b14898cf51f437c3d2f1" },
+    { name = "external-resources-io", extras = ["cli"], specifier = ">=0.5.0" },
     { name = "mypy", specifier = "~=1.13" },
     { name = "pytest", specifier = "~=8.2" },
     { name = "pytest-cov", specifier = "~=6.0" },
@@ -156,10 +156,14 @@ dev = [
 [[package]]
 name = "external-resources-io"
 version = "0.6.0"
-source = { git = "https://github.com/app-sre/external-resources-io.git?rev=bb20d4ad4b3de92f3dd0b14898cf51f437c3d2f1#bb20d4ad4b3de92f3dd0b14898cf51f437c3d2f1" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e7/75/4b2227dd44740b7949b043a68344422fff59bfbb02af15ec166a1dd04d5d/external_resources_io-0.6.0.tar.gz", hash = "sha256:f631c2aefe691fbcdaba2833d5d0372e32d6b7652a68efa5489656d9abdb7e00", size = 8981 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/b6/64656b022c5269cb1e54402c146ef555a72c26ef62d76763f331ec3b6008/external_resources_io-0.6.0-py3-none-any.whl", hash = "sha256:6f72740e62c468719e37e4c68bdd3c29ed02c8be1fec6512cca687d4a12df5fd", size = 11504 },
 ]
 
 [package.optional-dependencies]

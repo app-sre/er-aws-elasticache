@@ -13,9 +13,6 @@ dependencies = [
     "pydantic ~=2.10.3",
 ]
 
-[tool.uv.sources]
-external-resources-io = { git = "https://github.com/app-sre/external-resources-io.git", rev = "bb20d4ad4b3de92f3dd0b14898cf51f437c3d2f1" }
-
 [project.urls]
 homepage = "https://github.com/app-sre/er-aws-elasticache"
 repository = "https://github.com/app-sre/er-aws-elasticache"
