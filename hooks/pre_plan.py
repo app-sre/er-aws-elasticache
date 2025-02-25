@@ -2,7 +2,6 @@
 
 import logging
 import subprocess  # noqa: S404
-import sys
 from collections.abc import Sequence
 
 from external_resources_io.config import Action, Config
@@ -27,7 +26,7 @@ def migrate_resources(resources: Sequence[str]) -> bool:
             else f"{resource_class}.this"
         )
         logger.info(f"Migrate resource: {resource} -> {new_resource}")
-        terraform_run(["state", "mv", resource, new_resource])
+        terraform_run(["state", "mv", resource, new_resource], dry_run=False)
         changes = True
     return changes
 
@@ -52,9 +51,7 @@ def main() -> None:
         logger.info("No resources to migrate.")
         return
 
-    # The ERv2 run must exit here because further steps may produce incorrect outputs or results!
-    logger.info("Migration complete. Triggering a restart of the job!")
-    sys.exit(1)
+    logger.info("Migration completed!")
 
 
 if __name__ == "__main__":
