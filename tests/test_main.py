@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from external_resources_io.config import get_env_var_name
+from external_resources_io.config import EnvVar
 
 from er_aws_elasticache.__main__ import get_ai_input  # noqa: PLC2701
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
@@ -17,7 +17,7 @@ def prepare_test_env(
     """Prepare the test environment."""
     input_json = tmp_path / "input.json"
     input_json.write_text(json.dumps(raw_input_data))
-    monkeypatch.setenv(get_env_var_name("input_file"), str(input_json.absolute()))
+    monkeypatch.setenv(EnvVar.INPUT_FILE, str(input_json.absolute()))
 
 
 def test_main_get_ai_input(ai_input: AppInterfaceInput) -> None:

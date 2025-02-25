@@ -5,7 +5,7 @@ import subprocess  # noqa: S404
 import sys
 from collections.abc import Sequence
 
-from external_resources_io.config import Config
+from external_resources_io.config import Action, Config
 from external_resources_io.log import setup_logging
 from external_resources_io.terraform import terraform_run
 
@@ -34,7 +34,7 @@ def migrate_resources(resources: Sequence[str]) -> bool:
 
 def main() -> None:
     """Run terraform migrations."""
-    if Config().action == "delete":
+    if Config().action == Action.DESTROY:
         # do nothing
         return
 
