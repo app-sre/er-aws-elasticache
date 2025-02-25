@@ -20,7 +20,8 @@ image_tests:
 	[ -d "$$TF_PLUGIN_CACHE_DIR/registry.terraform.io/hashicorp/random" ]
 
 	# test all files in ./hooks are executable
-	[ -z "$(shell find hooks -type f -not -executable ! -name "__init__.py")" ]
+	[ -z "$(shell for f in hooks/*; do [ ! -x "$$f" ] && [ "$$f" != "hooks/__init__.py" ] && echo not-executable; done)" ]
+
 
 .PHONY: code_tests
 code_tests:
