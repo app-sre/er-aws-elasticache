@@ -48,27 +48,28 @@ elasticache = [
 
 [[package]]
 name = "botocore"
-version = "1.37.20"
+version = "1.37.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5d/eb/b90ec01a82278a283db0b788f0a36201e485ceb31df762c44cddbcda2085/botocore-1.37.20.tar.gz", hash = "sha256:9295385740f9d30f9b679f76ee51f49b80ae73183d84d499c1c3f1d54d820f54", size = 13670736 }
+sdist = { url = "https://files.pythonhosted.org/packages/db/f5/66237aba1ba70a9c73b58d7e3f60704dfc743ecec79e6c72fe86934656f6/botocore-1.37.21.tar.gz", hash = "sha256:b4b08daa9b4b2c379ef978a75a48907d72ac5b3b9247280488109eb41c19be36", size = 13674884 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/5b/f96cf58c37704b907ac2f9cc94e45ba0a2aa3b2062421aa8b8614f1d78de/botocore-1.37.20-py3-none-any.whl", hash = "sha256:c34f4f25fda7c4f726adf5a948590bd6bd7892c05278d31e344b5908e7b43301", size = 13432464 },
+    { url = "https://files.pythonhosted.org/packages/19/34/0216e7bfa7918c315c818229ac0327272da04ffee5d64611a48107c38d6f/botocore-1.37.21-py3-none-any.whl", hash = "sha256:2cd6016bff3877bea32c5257ab34f92210400293745ac95f291d6620fea1662a", size = 13436527 },
 ]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.37.20"
+version = "1.37.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "types-awscrt" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/e7/2adad7b85208f4371e17008e8e77cf28b86b1e8d63f37035a66d75a9552c/botocore_stubs-1.37.21.tar.gz", hash = "sha256:bbe702c43312ded6b40b69e0f81d6bbfb80f96e4aa72a77498809c75b614976a", size = 42129 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/1b/318bc7e6034a147fc5b3ba5a5082488130a082d603166049a58e8a3a802e/botocore_stubs-1.37.20-py3-none-any.whl", hash = "sha256:8e8bb57747a5d055f056e120892da3671476dd61919ffd8195a1ae4f38c0b34d", size = 65422 },
+    { url = "https://files.pythonhosted.org/packages/3d/4b/f7749b4bacd7d5a21d7136b6ca03e8ade4a12f9fb9ba2e189425e4e55a54/botocore_stubs-1.37.21-py3-none-any.whl", hash = "sha256:b14b98488c258a16ed693f89f789d8fd6bc1542359f55752b394778cb56125ee", size = 65424 },
 ]
 
 [[package]]
@@ -507,11 +508,11 @@ wheels = [
 
 [[package]]
 name = "typing-extensions"
-version = "4.12.2"
+version = "4.13.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/df/db/f35a00659bc03fec321ba8bce9420de607a1d37f8342eee1863174c69557/typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8", size = 85321 }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/3e/b00a62db91a83fff600de219b6ea9908e6918664899a2d85db222f4fbf19/typing_extensions-4.13.0.tar.gz", hash = "sha256:0a4ac55a5820789d87e297727d229866c9650f6521b64206413c4fbada24d95b", size = 106520 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/9f/ad63fc0248c5379346306f8668cda6e2e2e9c95e01216d2b8ffd9ff037d0/typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d", size = 37438 },
+    { url = "https://files.pythonhosted.org/packages/e0/86/39b65d676ec5732de17b7e3c476e45bb80ec64eb50737a8dce1a4178aba1/typing_extensions-4.13.0-py3-none-any.whl", hash = "sha256:c8dd92cc0d6425a97c18fbb9d1954e5ff92c1ca881a309c45f06ebc0b79058e5", size = 45683 },
 ]
 
 [[package]]
