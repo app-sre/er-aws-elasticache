@@ -7,7 +7,7 @@ ENV \
     PATH="${APP}/.venv/bin:${PATH}"
 
 FROM base AS builder
-COPY --from=ghcr.io/astral-sh/uv:0.6.9@sha256:cbc016e49b55190e17bfd0b89a1fdc1a54e0a54a8f737dfacc72eca9ad078338 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6.10@sha256:57da96c4557243fc0a732817854084e81af9393f64dc7d172f39c16465b5e2ba /uv /bin/uv
 
 # Python and UV related variables
 ENV \
@@ -43,7 +43,7 @@ COPY --from=builder ${TF_PLUGIN_CACHE_DIR} ${TF_PLUGIN_CACHE_DIR}
 COPY --from=builder ${APP} ${APP}
 
 FROM prod AS test
-COPY --from=ghcr.io/astral-sh/uv:0.6.9@sha256:cbc016e49b55190e17bfd0b89a1fdc1a54e0a54a8f737dfacc72eca9ad078338 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6.10@sha256:57da96c4557243fc0a732817854084e81af9393f64dc7d172f39c16465b5e2ba /uv /bin/uv
 
 # install test dependencies
 RUN uv sync --frozen
