@@ -1,6 +1,6 @@
 [project]
 name = "er-aws-elasticache"
-version = "0.4.3"
+version = "0.4.4"
 description = "ERv2 module for managing AWS Elasticache clusters"
 authors = [{ name = "AppSRE", email = "sd-app-sre@redhat.com" }]
 license = { text = "Apache 2.0" }

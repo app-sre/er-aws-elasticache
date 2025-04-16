@@ -48,3 +48,7 @@ dev:
 .PHONY: generate-variables-tf
 generate-variables-tf:
 	external-resources-io tf generate-variables-tf er_aws_elasticache.app_interface_input.AppInterfaceInput --output terraform/variables.tf
+
+.PHONY: providers-lock
+providers-lock:
+	terraform -chdir=terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_amd64 -platform=darwin_arm64
