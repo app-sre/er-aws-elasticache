@@ -1,4 +1,4 @@
-FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-terraform-main/er-base-terraform-main:0.3.7-1@sha256:600dd4728da11d92ffe2edf510030d236d2076d37838996a65747913a20c8803 AS base
+FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-terraform-main/er-base-terraform-main:0.3.7-2@sha256:29fedfe932acd8be7b8abc1e6dea35f5e2f867fcb6c00e7bd25af5cc50836c09 AS base
 # keep in sync with pyproject.toml
 LABEL konflux.additional-tags="0.4.4"
 ENV TERRAFORM_MODULE_SRC_DIR="./terraform"
@@ -7,7 +7,7 @@ ENV \
     PATH="${APP}/.venv/bin:${PATH}"
 
 FROM base AS builder
-COPY --from=ghcr.io/astral-sh/uv:0.6.17@sha256:4a6c9444b126bd325fba904bff796bf91fb777bf6148d60109c4cb1de2ffc497 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7.2@sha256:3b898ca84fbe7628c5adcd836c1de78a0f1ded68344d019af8478d4358417399 /uv /bin/uv
 
 # Python and UV related variables
 ENV \
@@ -43,7 +43,7 @@ COPY --from=builder ${TF_PLUGIN_CACHE_DIR} ${TF_PLUGIN_CACHE_DIR}
 COPY --from=builder ${APP} ${APP}
 
 FROM prod AS test
-COPY --from=ghcr.io/astral-sh/uv:0.6.17@sha256:4a6c9444b126bd325fba904bff796bf91fb777bf6148d60109c4cb1de2ffc497 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.7.2@sha256:3b898ca84fbe7628c5adcd836c1de78a0f1ded68344d019af8478d4358417399 /uv /bin/uv
 
 # install test dependencies
 RUN uv sync --frozen
