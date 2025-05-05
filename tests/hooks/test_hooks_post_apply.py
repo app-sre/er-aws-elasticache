@@ -1,4 +1,4 @@
-# ruff: noqa: DTZ001, DTZ005
+# ruff: noqa: DTZ005
 from datetime import datetime as dt
 
 import pytest
