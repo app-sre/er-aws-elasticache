@@ -51,4 +51,5 @@ generate-variables-tf:
 
 .PHONY: providers-lock
 providers-lock:
+	rm -f terraform/.terraform.lock.hcl
 	terraform -chdir=terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_amd64 -platform=darwin_arm64

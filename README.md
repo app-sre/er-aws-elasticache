@@ -7,25 +7,36 @@ External Resources module to provision and manage Elasticache clusters in AWS wi
 
 ## Tech stack
 
-* Terraform CDKTF
+* Terraform
 * AWS provider
 * Random provider
-* Python 3.11
+* Python 3.12
 * Pydantic
 
 ## Development
 
-> :warning: **Attention**
->
-> The CDKTF Python module generation needs at least 12GB of memory and takes around 5 minutes to complete.
-
-Prepare your lcoal development environment:
+Prepare your local development environment:
 
 ```bash
 make dev
 ```
 
 See the `Makefile` for more details.
+
+### Update Terraform modules
+
+To update the Terraform modules used in this project, bump the version in [versions.tf](/terraform/versions.tf) and update the Terraform lockfile via:
+
+```bash
+make providers-lock
+```
+
+### Development workflow
+
+1. Make changes to the code.
+1. Build the image with `make build`.
+1. Run the image manually with a proper input file and credentials. See the [Debugging](#debugging) section below.
+1. Please don't forget to remove (`-e ACTION=Destroy`) any development AWS resources you create, as they will incur costs.
 
 ## Debugging
 
@@ -40,45 +51,14 @@ $ export IMAGE=quay.io/redhat-services-prod/app-sre-tenant/er-aws-elasticache-ma
 qontract-cli --config=<CONFIG_TOML> external-resources --provisioner <AWS_ACCOUNT_NAME> --provider elasticache --identifier <IDENTIFIER> get-input > tmp/input.json
 
 # Get the AWS credentials
-$ vault login -method=oidc -address=https://vault.devshift.net
-$ vault kv get \
-    -mount app-sre/ \
-    -field credentials \
-    external-resources/<AWS_ACCOUNT_NAME> > tmp/credentials
+$ qontract-cli --config=<CONFIG_TOML> external-resources --provisioner <AWS_ACCOUNT_NAME> --provider elasticache --identifier <IDENTIFIER> get-credentials > tmp/credentials
 
 # Run the stack
 $ docker run --rm -it \
     --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json \
     --mount type=bind,source=$PWD/tmp/credentials,target=/credentials \
+    --mount type=bind,source=$PWD/tmp/work,target=/work \
+    -e DRY_RUN=True \
+    -e ACTION=Apply \
     "$IMAGE"
-```
-
-Get the stack file:
-
-```bash
-docker rm -f erv2 && docker run --name cdktf-debug \
-  --mount type=bind,source=$PWD/tmp/input.json,target=/inputs/input.json \
-  --mount type=bind,source=$PWD/tmp/credentials,target=/credentials  \
-  --entrypoint cdktf \
-  "$IMAGE" \
-  synth --output /tmp/cdktf.out
-
-docker cp cdktf-debug:/tmp/cdktf.out/stacks/CDKTF/cdk.tf.json tmp/cdk.tf.json
-```
-
-Compile the plan:
-
-```bash
-cd tmp/...
-export AWS_SHARED_CREDENTIALS_FILE=../credentials
-terraform init
-terraform plan -out=plan.out
-terraform show -json plan.out > plan.json
-```
-
-Run the validation:
-
-```bash
-export ER_INPUT_FILE=$PWD/tmp/input.json
-python hooks/validate_plan.py tmp/plan.json
 ```
