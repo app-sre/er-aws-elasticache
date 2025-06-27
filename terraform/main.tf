@@ -42,6 +42,7 @@ resource "aws_elasticache_replication_group" "this" {
   apply_immediately           = var.apply_immediately
   at_rest_encryption_enabled  = var.at_rest_encryption_enabled
   auth_token                  = var.transit_encryption_enabled ? random_password.this[0].result : null
+  auth_token_update_strategy  = "SET"
   automatic_failover_enabled  = var.automatic_failover_enabled
   description                 = var.replication_group_description
   engine                      = var.engine
