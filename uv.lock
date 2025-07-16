@@ -48,16 +48,16 @@ elasticache = [
 
 [[package]]
 name = "botocore"
-version = "1.39.5"
+version = "1.39.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/31/61/ee63d2cf798dda0edb69bd13cba97627c4e75ae1b52fcc99bd15a2374803/botocore-1.39.5.tar.gz", hash = "sha256:a72f81ef686e455f84a6173836330a9638a9b3838cea277eced09ca30b742476", size = 14158677, upload-time = "2025-07-15T22:27:41.551Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/a2/2774e34ddac5667a7be3953ffa49e17e22f255a06c86f3486e9d23093372/botocore-1.39.6.tar.gz", hash = "sha256:d3a6c207d233ddee3289c1d56646047bef18b21a1faebb3d83a6fca149fd0f59", size = 14158426, upload-time = "2025-07-16T01:46:17.409Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/89/ebdcb1c9cdf40649ab8467d61f5f5cb0f3bf5d1a17912ed45b7f7d04be5b/botocore-1.39.5-py3-none-any.whl", hash = "sha256:cdfc98d07068f86a6d51bc36d1af6b9ca593b8dc5068b5ca6447b91df45dd57d", size = 13818904, upload-time = "2025-07-15T22:27:35.801Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/74/164490fc26788842821ab665786eb4fdcc8553131e009e23a5ea13ac164d/botocore-1.39.6-py3-none-any.whl", hash = "sha256:9c002724e9b97cec610dbbb3bb019b3248ff6bf58407835621f0461e740af90b", size = 13819020, upload-time = "2025-07-16T01:46:11.686Z" },
 ]
 
 [[package]]
