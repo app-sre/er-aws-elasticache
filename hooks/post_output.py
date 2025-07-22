@@ -26,7 +26,7 @@ def main() -> None:
     """Main function."""
     logger.info("Running post checks ...")
     output_json = Path(Config().outputs_file)
-    if not check(json.loads(output_json.read_text())):
+    if not check(json.loads(output_json.read_text(encoding="utf-8"))):
         sys.exit(1)
     logger.info("Post checks completed.")
 
