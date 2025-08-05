@@ -1,4 +1,4 @@
-FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-terraform-main/er-base-terraform-main:0.3.8-9@sha256:9b6982023b8315f1cc59cbbcc44f157de4e96461eef12f4c3863b20f5b44ad4c AS base
+FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-terraform-main/er-base-terraform-main:0.3.8-10@sha256:391b0d28f6a2f449abb1a0053720ca769d30a153bb4a55c7a0c372347583551f AS base
 # keep in sync with pyproject.toml
 LABEL konflux.additional-tags="0.5.0"
 ENV TERRAFORM_MODULE_SRC_DIR="./terraform"
