@@ -18,7 +18,7 @@ ENV \
     UV_NO_PROGRESS=true
 
 # Terraform code
-COPY ${TERRAFORM_MODULE_SRC_DIR} ${TERRAFORM_MODULE_SRC_DIR}
+COPY --chown=app:root ${TERRAFORM_MODULE_SRC_DIR} ${TERRAFORM_MODULE_SRC_DIR}
 RUN terraform-provider-sync
 
 COPY pyproject.toml uv.lock ./

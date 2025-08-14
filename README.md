@@ -38,6 +38,20 @@ make providers-lock
 1. Run the image manually with a proper input file and credentials. See the [Debugging](#debugging) section below.
 1. Please don't forget to remove (`-e ACTION=Destroy`) any development AWS resources you create, as they will incur costs.
 
+### Running the Terraform Tests
+
+Unfortunately, Terraform tests require AWS credentials to run, even if they don't create or change AWS resources (`command = plan`). Ensure you have the necessary credentials set up in your environment. For example, use `rh-aws-saml-login` to enter the `ter-int-dev` accounts.
+
+```bash
+rh-aws-saml-login ter-int-dev
+```
+
+With a proper AWS credentials in place, you should be able to run the Terraform tests without any issues.
+
+```bash
+make terraform-test-full
+```
+
 ## Debugging
 
 To debug and run the module locally, run the following commands:

@@ -32,7 +32,7 @@ resource "random_password" "this" {
   count   = var.transit_encryption_enabled ? 1 : 0
   length  = 20
   special = true
-  keepers = coalesce(var.reset_password, false) ? {
+  keepers = var.reset_password != null && var.reset_password != "" ? {
     reset_password = var.reset_password
   } : null
   override_special = "!&#$^<>-"

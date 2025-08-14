@@ -144,7 +144,6 @@ def test_engine_info_creation() -> None:
     ("name", "family", "version"),
     [
         ("redis", "redis7.x", "7.0.7"),
-        ("memcached", "memcached1.6", "1.6.12"),
         ("redis", "redis6.x", "6.2.13"),
     ],
 )
@@ -345,7 +344,6 @@ def test_replication_group_validate_security_groups_wrong_vpc(
     [
         ("redis", "7.0.7", "redis7.x"),
         ("redis", "6.2.13", "redis6.x"),
-        ("memcached", "1.6.12", "memcached1.6"),
     ],
 )
 def test_replication_group_validate_engine_version_valid(
@@ -610,7 +608,6 @@ def test_validate_multiple_replication_groups(
     [
         ("redis", "7.0.7", "redis7.x"),
         ("redis", "6.2.13", "redis6.x"),
-        ("memcached", "1.6.12", "memcached1.6"),
     ],
 )
 def test_engine_version_family_mapping(

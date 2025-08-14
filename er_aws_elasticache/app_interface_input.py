@@ -4,6 +4,8 @@ from typing import Any, Self
 from external_resources_io.input import AppInterfaceProvision
 from pydantic import BaseModel, field_validator, model_validator
 
+MAX_REPLICATION_GROUP_ID_LENGTH = 40
+
 
 class ElasticacheLogDeliveryConfiguration(BaseModel):
     """Data model for AWS Elasticache log delivery configuration"""
@@ -192,6 +194,16 @@ class ElasticacheData(BaseModel):
         """Patch the parameter_group_name to include the family"""
         if self.parameter_group_name and self.parameter_group:
             self.parameter_group_name = self.parameter_group.name
+        return self
+
+    @model_validator(mode="after")
+    def check_replication_group_id_length(self) -> Self:
+        """Check if the replication group ID is within the allowed length"""
+        if len(self.replication_group_id) > MAX_REPLICATION_GROUP_ID_LENGTH:
+            raise ValueError(
+                f"Replication group ID must be {MAX_REPLICATION_GROUP_ID_LENGTH} characters or less. "
+                f"Current length: {len(self.replication_group_id)}"
+            )
         return self
 
 
