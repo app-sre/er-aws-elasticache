@@ -3,6 +3,7 @@
 import logging
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from external_resources_io.config import Config
 from external_resources_io.input import parse_model, read_input_from_file
@@ -17,6 +18,21 @@ from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib.aws_api import AWSApi
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class EngineInfo:
+    """Represents information about an ElastiCache engine.
+
+    Attributes:
+        name: The name of the engine (e.g., 'redis', 'memcached').
+        family: The parameter group family for the engine version.
+        version: The version of the engine.
+    """
+
+    name: str
+    family: str
+    version: str
 
 
 class ElasticachePlanValidator:
@@ -39,7 +55,10 @@ class ElasticachePlanValidator:
             if c.type == "aws_elasticache_replication_group"
             and c.change
             and c.change.after
-            and Action.ActionCreate in c.change.actions
+            and (
+                Action.ActionCreate in c.change.actions
+                or Action.ActionUpdate in c.change.actions
+            )
         ]
 
     @property
@@ -50,9 +69,15 @@ class ElasticachePlanValidator:
             for c in self.plan.plan.resource_changes
             if c.type == "aws_elasticache_parameter_group"
             and c.change
-            and Action.ActionCreate in c.change.actions
+            and (
+                Action.ActionCreate in c.change.actions
+                or Action.ActionUpdate in c.change.actions
+            )
         ]
 
+    #
+    # Replication Group validations
+    #
     def _validate_replication_group_id(self, replication_group_id: str) -> None:
         logger.info(f"Validating Elasticache replication group {replication_group_id}")
         try:
@@ -102,7 +127,85 @@ class ElasticachePlanValidator:
                     f"Security group {sg.get('GroupId')} does not belong to the same VPC as the subnets"
                 )
 
-    def _validate_parameter_group(self, name: str) -> None:
+    def _validate_engine_version(self, engine: str, engine_version: str) -> str | None:
+        """Validate that the engine version is supported"""
+        logger.info(f"Validating engine version {engine} {engine_version}")
+
+        # Get available engine versions from AWS
+        response = self.aws_api.client.describe_cache_engine_versions(
+            Engine=engine, EngineVersion=engine_version
+        )
+        if not response.get("CacheEngineVersions"):
+            self.errors.append(
+                f"Engine version {engine} {engine_version} is not available"
+            )
+            return None
+
+        # Get the cache parameter group family for this engine version
+        engine_details = response["CacheEngineVersions"][0]
+        return engine_details.get("CacheParameterGroupFamily")
+
+    def _validate_apply_immediately_for_version_change(
+        self, change: ResourceChange
+    ) -> None:
+        """Validate that apply_immediately is true when engine version changes"""
+        if not change.change or not change.change.before or not change.change.after:
+            return
+
+        before_engine = change.change.before.get("engine")
+        after_engine = change.change.after.get("engine")
+        before_version = change.change.before.get("engine_version")
+        after_version = change.change.after.get("engine_version")
+        apply_immediately = change.change.after.get("apply_immediately", False)
+
+        # Check if engine or version changed
+        engine_changed = before_engine != after_engine
+        version_changed = before_version != after_version
+
+        if (engine_changed or version_changed) and not apply_immediately:
+            self.errors.append(
+                f"apply_immediately must be true when changing engine from "
+                f"{before_engine} {before_version} to {after_engine} {after_version}"
+            )
+
+    def validate_replication_group(self, change: ResourceChange) -> EngineInfo:
+        """Validate a single replication group change"""
+        assert change.change  # mypy
+        assert change.change.after  # mypy
+
+        # Only validate replication group ID for new resources
+        if Action.ActionCreate in change.change.actions:
+            self._validate_replication_group_id(
+                change.change.after["replication_group_id"]
+            )
+
+            if vpc_id := self._validate_subnets(
+                cache_subnet_group_name=change.change.after["subnet_group_name"]
+            ):
+                self._validate_security_groups(
+                    security_groups=change.change.after["security_group_ids"],
+                    vpc_id=vpc_id,
+                )
+
+        # Validate engine version for both create and update
+        engine_family = self._validate_engine_version(
+            change.change.after["engine"], change.change.after["engine_version"]
+        )
+
+        # Validate apply_immediately for version changes
+        if Action.ActionUpdate in change.change.actions:
+            self._validate_apply_immediately_for_version_change(change)
+
+        return EngineInfo(
+            name=change.change.after["engine"],
+            version=change.change.after["engine_version"],
+            family=engine_family or "",
+        )
+
+    #
+    # Parameter Group validations
+    #
+    def _validate_parameter_group_name(self, name: str) -> None:
         logger.info(f"Validating Elasticache parameter group {name}")
         try:
             self.aws_api.client.describe_cache_parameters(CacheParameterGroupName=name)
@@ -110,23 +213,45 @@ class ElasticachePlanValidator:
         except self.aws_api.client.exceptions.CacheParameterGroupNotFoundFault:
             pass
 
+    def _validate_parameter_group_family(
+        self, engine_info: EngineInfo, family: str
+    ) -> None:
+        """Validate that parameter group family matches engine version using AWS API"""
+        logger.info(
+            f"Validating parameter group family {family} for {engine_info.name} {engine_info.version}"
+        )
+        if family != engine_info.family:
+            self.errors.append(
+                f"Parameter group family '{family}' does not match engine {engine_info.name} {engine_info.version}. "
+                f"Expected: {engine_info.family}"
+            )
+
+    def validate_parameter_group(
+        self, change: ResourceChange, engine_info: EngineInfo | None
+    ) -> None:
+        """Validate a single parameter group change"""
+        assert change.change  # mypy
+        assert change.change.after  # mypy
+
+        # Only validate parameter group name for new resources
+        if Action.ActionCreate in change.change.actions:
+            self._validate_parameter_group_name(change.name)
+
+        if engine_info and engine_info.family:
+            # Validate parameter group family matches engine version
+            self._validate_parameter_group_family(
+                engine_info, change.change.after["family"]
+            )
+
     def validate(self) -> bool:
         """Validate method"""
-        for u in self.elasticache_replication_group_updates:
-            assert u.change  # mypy
-            assert u.change.after  # mypy
+        engine_info = None
+        for change in self.elasticache_replication_group_updates:
+            engine_info = self.validate_replication_group(change)
 
-            self._validate_replication_group_id(u.change.after["replication_group_id"])
+        for change in self.elasticache_parameter_group_updates:
+            self.validate_parameter_group(change, engine_info)
 
-            if vpc_id := self._validate_subnets(
-                cache_subnet_group_name=u.change.after["subnet_group_name"]
-            ):
-                self._validate_security_groups(
-                    security_groups=u.change.after["security_group_ids"],
-                    vpc_id=vpc_id,
-                )
-        for u in self.elasticache_parameter_group_updates:
-            self._validate_parameter_group(u.name)
         return not self.errors
 
 
