@@ -35,6 +35,12 @@ class ParameterGroup(BaseModel):
     description: str
     parameters: Sequence[Parameter]
 
+    @model_validator(mode="after")
+    def patch_name(self) -> Self:
+        """Patch the name to include the family"""
+        self.name = f"{self.name}-{self.family.replace('.', '-')}"
+        return self
+
 
 class ElasticacheData(BaseModel):
     """Data model for AWS Elasticache"""
@@ -179,6 +185,13 @@ class ElasticacheData(BaseModel):
             return self
         if tags := self.default_tags[0].get("tags"):
             self.default_tags_tf = tags
+        return self
+
+    @model_validator(mode="after")
+    def patch_parameter_group_name(self) -> Self:
+        """Patch the parameter_group_name to include the family"""
+        if self.parameter_group_name and self.parameter_group:
+            self.parameter_group_name = self.parameter_group.name
         return self
 
 
