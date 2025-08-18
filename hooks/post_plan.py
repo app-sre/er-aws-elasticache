@@ -75,6 +75,25 @@ class ElasticachePlanValidator:
             )
         ]
 
+    def get_engine_version(self, engine: str, engine_version: str) -> EngineInfo:
+        """Get the engine version and the cache parameter group family"""
+        # Get available engine versions from AWS
+        response = self.aws_api.client.describe_cache_engine_versions(
+            Engine=engine, EngineVersion=engine_version
+        )
+        if not response.get("CacheEngineVersions"):
+            raise ValueError(
+                f"Engine version {engine} {engine_version} is not available"
+            )
+
+        # Get the cache parameter group family for this engine version
+        engine_details = response["CacheEngineVersions"][0]
+        return EngineInfo(
+            name=engine,
+            version=engine_version,
+            family=engine_details["CacheParameterGroupFamily"],
+        )
+
     #
     # Replication Group validations
     #
@@ -127,37 +146,16 @@ class ElasticachePlanValidator:
                     f"Security group {sg.get('GroupId')} does not belong to the same VPC as the subnets"
                 )
 
-    def _validate_engine_version(self, engine: str, engine_version: str) -> str | None:
-        """Validate that the engine version is supported"""
-        logger.info(f"Validating engine version {engine} {engine_version}")
-
-        # Get available engine versions from AWS
-        response = self.aws_api.client.describe_cache_engine_versions(
-            Engine=engine, EngineVersion=engine_version
-        )
-        if not response.get("CacheEngineVersions"):
-            self.errors.append(
-                f"Engine version {engine} {engine_version} is not available"
-            )
-            return None
-
-        # Get the cache parameter group family for this engine version
-        engine_details = response["CacheEngineVersions"][0]
-        return engine_details.get("CacheParameterGroupFamily")
-
-    def _validate_apply_immediately_for_version_change(
-        self, change: ResourceChange
+    def _validate_cluster_upgrade(
+        self,
+        before_engine: str,
+        after_engine: str,
+        before_version: str,
+        after_version: str,
+        *,
+        apply_immediately: bool,
     ) -> None:
         """Validate that apply_immediately is true when engine version changes"""
-        if not change.change or not change.change.before or not change.change.after:
-            return
-
-        before_engine = change.change.before.get("engine")
-        after_engine = change.change.after.get("engine")
-        before_version = change.change.before.get("engine_version")
-        after_version = change.change.after.get("engine_version")
-        apply_immediately = change.change.after.get("apply_immediately", False)
-
         # Check if engine or version changed
         engine_changed = before_engine != after_engine
         version_changed = before_version != after_version
@@ -168,39 +166,20 @@ class ElasticachePlanValidator:
                 f"{before_engine} {before_version} to {after_engine} {after_version}"
             )
 
-    def validate_replication_group(self, change: ResourceChange) -> EngineInfo:
+    def _validate_replication_group(
+        self,
+        replication_group_id: str,
+        subnet_group_name: str,
+        security_groups: Sequence[str],
+    ) -> None:
         """Validate a single replication group change"""
-        assert change.change  # mypy
-        assert change.change.after  # mypy
-
         # Only validate replication group ID for new resources
-        if Action.ActionCreate in change.change.actions:
-            self._validate_replication_group_id(
-                change.change.after["replication_group_id"]
+        self._validate_replication_group_id(replication_group_id)
+
+        if vpc_id := self._validate_subnets(cache_subnet_group_name=subnet_group_name):
+            self._validate_security_groups(
+                security_groups=security_groups, vpc_id=vpc_id
             )
-
-            if vpc_id := self._validate_subnets(
-                cache_subnet_group_name=change.change.after["subnet_group_name"]
-            ):
-                self._validate_security_groups(
-                    security_groups=change.change.after["security_group_ids"],
-                    vpc_id=vpc_id,
-                )
-
-        # Validate engine version for both create and update
-        engine_family = self._validate_engine_version(
-            change.change.after["engine"], change.change.after["engine_version"]
-        )
-
-        # Validate apply_immediately for version changes
-        if Action.ActionUpdate in change.change.actions:
-            self._validate_apply_immediately_for_version_change(change)
-
-        return EngineInfo(
-            name=change.change.after["engine"],
-            version=change.change.after["engine_version"],
-            family=engine_family or "",
-        )
 
     #
     # Parameter Group validations
@@ -226,31 +205,49 @@ class ElasticachePlanValidator:
                 f"Expected: {engine_info.family}"
             )
 
-    def validate_parameter_group(
-        self, change: ResourceChange, engine_info: EngineInfo | None
-    ) -> None:
-        """Validate a single parameter group change"""
-        assert change.change  # mypy
-        assert change.change.after  # mypy
-
-        # Only validate parameter group name for new resources
-        if Action.ActionCreate in change.change.actions:
-            self._validate_parameter_group_name(change.name)
-
-        if engine_info and engine_info.family:
-            # Validate parameter group family matches engine version
-            self._validate_parameter_group_family(
-                engine_info, change.change.after["family"]
-            )
-
     def validate(self) -> bool:
         """Validate method"""
         engine_info = None
         for change in self.elasticache_replication_group_updates:
-            engine_info = self.validate_replication_group(change)
+            assert change.change  # mypy
+            assert change.change.after  # mypy
+
+            if Action.ActionCreate in change.change.actions:
+                self._validate_replication_group(
+                    replication_group_id=change.change.after["replication_group_id"],
+                    subnet_group_name=change.change.after["subnet_group_name"],
+                    security_groups=change.change.after["security_group_ids"],
+                )
+
+            # Run validation for version changes
+            if Action.ActionUpdate in change.change.actions:
+                assert change.change.before  # mypy
+                self._validate_cluster_upgrade(
+                    before_engine=change.change.before.get("engine"),
+                    after_engine=change.change.after.get("engine"),
+                    before_version=change.change.before.get("engine_version"),
+                    after_version=change.change.after.get("engine_version"),
+                    apply_immediately=change.change.after.get(
+                        "apply_immediately", False
+                    ),
+                )
+
+            engine_info = self.get_engine_version(
+                engine=change.change.after["engine"],
+                engine_version=change.change.after["engine_version"],
+            )
 
         for change in self.elasticache_parameter_group_updates:
-            self.validate_parameter_group(change, engine_info)
+            assert change.change  # mypy
+            assert change.change.after  # mypy
+
+            if Action.ActionCreate in change.change.actions:
+                self._validate_parameter_group_name(name=change.name)
+            if engine_info and engine_info.family:
+                # Validate parameter group family matches engine version
+                self._validate_parameter_group_family(
+                    engine_info, change.change.after["family"]
+                )
 
         return not self.errors
 

@@ -364,9 +364,10 @@ def test_replication_group_validate_engine_version_valid(
         "CacheEngineVersions": [{"CacheParameterGroupFamily": expected_family}]
     }
 
-    family = validator._validate_engine_version(engine, version)
-    assert family == expected_family
-    assert validator.errors == []
+    engine_info = validator.get_engine_version(engine, version)
+    assert engine_info.family == expected_family
+    assert engine_info.name == engine
+    assert engine_info.version == version
 
 
 def test_replication_group_validate_engine_version_invalid(
@@ -377,35 +378,21 @@ def test_replication_group_validate_engine_version_invalid(
         "CacheEngineVersions": []
     }
 
-    family = validator._validate_engine_version("redis", "invalid")
-    assert family is None
-    assert len(validator.errors) == 1
-    assert "not available" in validator.errors[0]
+    with pytest.raises(ValueError, match="not available"):
+        validator.get_engine_version("redis", "invalid")
 
 
 def test_replication_group_validate_apply_immediately_for_version_change_required(
     validator: ElasticachePlanValidator,
 ) -> None:
     """ReplicationGroup: Test apply_immediately validation when version changes (required)"""
-    change = ResourceChange(
-        address="aws_elasticache_replication_group.test",
-        mode="managed",
-        type="aws_elasticache_replication_group",
-        name="test",
-        provider_name="registry.terraform.io/hashicorp/aws",
-        change=Change(
-            actions=[Action.ActionUpdate],
-            before={"engine": "redis", "engine_version": "6.2.13"},
-            after={
-                "engine": "redis",
-                "engine_version": "7.0.7",
-                "apply_immediately": False,
-            },
-            after_unknown=None,
-        ),
+    validator._validate_cluster_upgrade(
+        before_engine="redis",
+        after_engine="redis",
+        before_version="6.2.13",
+        after_version="7.0.7",
+        apply_immediately=False,
     )
-
-    validator._validate_apply_immediately_for_version_change(change)
     assert len(validator.errors) == 1
     assert "apply_immediately must be true" in validator.errors[0]
 
@@ -414,43 +401,30 @@ def test_replication_group_validate_apply_immediately_for_version_change_correct
     validator: ElasticachePlanValidator,
 ) -> None:
     """ReplicationGroup: Test apply_immediately validation when correctly set"""
-    change = ResourceChange(
-        address="aws_elasticache_replication_group.test",
-        mode="managed",
-        type="aws_elasticache_replication_group",
-        name="test",
-        provider_name="registry.terraform.io/hashicorp/aws",
-        change=Change(
-            actions=[Action.ActionUpdate],
-            before={"engine": "redis", "engine_version": "6.2.13"},
-            after={
-                "engine": "redis",
-                "engine_version": "7.0.7",
-                "apply_immediately": True,
-            },
-            after_unknown=None,
-        ),
+    validator._validate_cluster_upgrade(
+        before_engine="redis",
+        after_engine="redis",
+        before_version="6.2.13",
+        after_version="7.0.7",
+        apply_immediately=True,
     )
-
-    validator._validate_apply_immediately_for_version_change(change)
     assert validator.errors == []
 
 
 def test_replication_group_validate_create(
-    validator: ElasticachePlanValidator,
-    replication_group_change: ResourceChange,
-    mock_aws_client: MagicMock,
+    validator: ElasticachePlanValidator, mock_aws_client: MagicMock
 ) -> None:
     """ReplicationGroup: Test complete replication group validation for create action"""
     mock_aws_client.describe_replication_groups.side_effect = (
         mock_aws_client.exceptions.ReplicationGroupNotFoundFault()
     )
 
-    engine_info = validator.validate_replication_group(replication_group_change)
+    validator._validate_replication_group(
+        replication_group_id="test-cluster",
+        subnet_group_name="test-subnet-group",
+        security_groups=["sg-123", "sg-456"],
+    )
 
-    assert engine_info.name == "redis"
-    assert engine_info.version == "7.0.7"
-    assert engine_info.family == "redis7.x"
     assert validator.errors == []
 
 
@@ -458,29 +432,15 @@ def test_replication_group_validate_update(
     validator: ElasticachePlanValidator,
     mock_aws_client: MagicMock,  # noqa: ARG001
 ) -> None:
-    """ReplicationGroup: Test replication group validation for update action"""
-    change = ResourceChange(
-        address="aws_elasticache_replication_group.test",
-        mode="managed",
-        type="aws_elasticache_replication_group",
-        name="test",
-        provider_name="registry.terraform.io/hashicorp/aws",
-        change=Change(
-            actions=[Action.ActionUpdate],
-            before={"engine": "redis", "engine_version": "6.2.13"},
-            after={
-                "engine": "redis",
-                "engine_version": "7.0.7",
-                "apply_immediately": True,
-            },
-            after_unknown=None,
-        ),
+    """ReplicationGroup: Test cluster upgrade validation for update action"""
+    validator._validate_cluster_upgrade(
+        before_engine="redis",
+        after_engine="redis",
+        before_version="6.2.13",
+        after_version="7.0.7",
+        apply_immediately=True,
     )
 
-    engine_info = validator.validate_replication_group(change)
-
-    assert engine_info.name == "redis"
-    assert engine_info.version == "7.0.7"
     assert validator.errors == []
 
 
@@ -529,9 +489,7 @@ def test_parameter_group_validate_family_mismatch(
 
 
 def test_parameter_group_validate_create(
-    validator: ElasticachePlanValidator,
-    parameter_group_change: ResourceChange,
-    mock_aws_client: MagicMock,
+    validator: ElasticachePlanValidator, mock_aws_client: MagicMock
 ) -> None:
     """ParameterGroup: Test complete parameter group validation for create action"""
     mock_aws_client.describe_cache_parameters.side_effect = (
@@ -540,7 +498,8 @@ def test_parameter_group_validate_create(
 
     engine_info = EngineInfo(name="redis", family="redis7.x", version="7.0.7")
 
-    validator.validate_parameter_group(parameter_group_change, engine_info)
+    validator._validate_parameter_group_name("test-pg")
+    validator._validate_parameter_group_family(engine_info, "redis7.x")
     assert validator.errors == []
 
 
@@ -549,23 +508,9 @@ def test_parameter_group_validate_update(
     mock_aws_client: MagicMock,  # noqa: ARG001
 ) -> None:
     """ParameterGroup: Test parameter group validation for update action"""
-    change = ResourceChange(
-        address="aws_elasticache_parameter_group.test",
-        mode="managed",
-        type="aws_elasticache_parameter_group",
-        name="test-pg",
-        provider_name="registry.terraform.io/hashicorp/aws",
-        change=Change(
-            actions=[Action.ActionUpdate],
-            before={"family": "redis6.x"},
-            after={"family": "redis7.x", "name": "test-pg"},
-            after_unknown=None,
-        ),
-    )
-
     engine_info = EngineInfo(name="redis", family="redis7.x", version="7.0.7")
 
-    validator.validate_parameter_group(change, engine_info)
+    validator._validate_parameter_group_family(engine_info, "redis7.x")
     assert validator.errors == []
 
 
