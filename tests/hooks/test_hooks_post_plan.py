@@ -237,11 +237,7 @@ def test_validator_replication_group_filter_by_actions(
 
     validator.plan.plan.resource_changes = [change]
     updates = validator.elasticache_replication_group_updates
-
-    if should_include:
-        assert len(updates) == 1
-    else:
-        assert len(updates) == 0
+    assert bool(len(updates)) == should_include
 
 
 def test_replication_group_validate_id_not_exists(
@@ -629,28 +625,30 @@ def test_engine_version_family_mapping(
         "CacheEngineVersions": [{"CacheParameterGroupFamily": family}]
     }
 
-    result_family = validator._validate_engine_version(engine, version)
-    assert result_family == family
+    engine_info = validator.get_engine_version(engine, version)
+    assert engine_info.family == family
+    assert engine_info.name == engine
+    assert engine_info.version == version
 
 
 @pytest.mark.parametrize(
-    ("actions", "resource_type", "should_be_included"),
+    ("actions", "resource_type", "expected_rg_count", "expected_pg_count"),
     [
-        ([Action.ActionCreate], "aws_elasticache_replication_group", True),
-        ([Action.ActionUpdate], "aws_elasticache_replication_group", True),
-        ([Action.ActionDelete], "aws_elasticache_replication_group", False),
-        ([Action.ActionCreate], "aws_elasticache_parameter_group", True),
-        ([Action.ActionUpdate], "aws_elasticache_parameter_group", True),
-        ([Action.ActionDelete], "aws_elasticache_parameter_group", False),
-        ([Action.ActionCreate], "aws_instance", False),
+        ([Action.ActionCreate], "aws_elasticache_replication_group", 1, 0),
+        ([Action.ActionUpdate], "aws_elasticache_replication_group", 1, 0),
+        ([Action.ActionDelete], "aws_elasticache_replication_group", 0, 0),
+        ([Action.ActionCreate], "aws_elasticache_parameter_group", 0, 1),
+        ([Action.ActionUpdate], "aws_elasticache_parameter_group", 0, 1),
+        ([Action.ActionDelete], "aws_elasticache_parameter_group", 0, 0),
+        ([Action.ActionCreate], "aws_instance", 0, 0),
     ],
 )
 def test_resource_filtering(
     validator: ElasticachePlanValidator,
     actions: list[Action],
     resource_type: str,
-    *,
-    should_be_included: bool,
+    expected_rg_count: int,
+    expected_pg_count: int,
 ) -> None:
     """ResourceFiltering: Test resource filtering by type and action"""
     change = ResourceChange(
@@ -669,12 +667,5 @@ def test_resource_filtering(
     rg_updates = validator.elasticache_replication_group_updates
     pg_updates = validator.elasticache_parameter_group_updates
 
-    if resource_type == "aws_elasticache_replication_group" and should_be_included:
-        assert len(rg_updates) == 1
-        assert len(pg_updates) == 0
-    elif resource_type == "aws_elasticache_parameter_group" and should_be_included:
-        assert len(pg_updates) == 1
-        assert len(rg_updates) == 0
-    else:
-        assert len(rg_updates) == 0
-        assert len(pg_updates) == 0
+    assert len(rg_updates) == expected_rg_count
+    assert len(pg_updates) == expected_pg_count
