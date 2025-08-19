@@ -58,6 +58,7 @@ def main(
     )
 
     service_updates = sumgr.service_updates(
+        service_updates_types=app_interface_input.data.service_updates_types,
         severities=app_interface_input.data.service_updates_severities,
         released_before=dt.now(tz=UTC)
         - timedelta(

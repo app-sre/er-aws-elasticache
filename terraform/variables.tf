@@ -151,6 +151,11 @@ variable "service_updates_severities" {
   default = ["critical", "important"]
 }
 
+variable "service_updates_types" {
+  type    = list(string)
+  default = ["engine-update", "security-update"]
+}
+
 variable "snapshot_retention_limit" {
   type    = number
   default = null
@@ -163,7 +168,7 @@ variable "snapshot_window" {
 
 variable "subnet_group_name" {
   type    = string
-  default = null
+  default = "default"
 }
 
 variable "tags" {

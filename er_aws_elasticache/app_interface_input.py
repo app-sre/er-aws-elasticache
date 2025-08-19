@@ -58,6 +58,12 @@ class ElasticacheData(BaseModel):
     # service updates related
     environment: str = "production"
     service_updates_enabled: bool = True
+    service_updates_types: Sequence[str] = [
+        "engine-update",
+        "security-update",
+        # we don't want to run major engine updates by default
+        # 'engine-major-version-update'
+    ]
     service_updates_severities: Sequence[str] = ["critical", "important"]
     service_updates_cooldown_days: int | None = None
 

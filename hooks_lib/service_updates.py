@@ -43,7 +43,10 @@ class ServiceUpdatesManager:
         )
 
     def service_updates(
-        self, severities: Sequence[str], released_before: datetime
+        self,
+        service_updates_types: Sequence[str],
+        severities: Sequence[str],
+        released_before: datetime,
     ) -> list[ServiceUpdate]:
         """Get a list of all available service updates ordered by release date (most recent first)."""
         return [
@@ -58,7 +61,8 @@ class ServiceUpdatesManager:
                 replication_group_id=self.replication_group_id,
                 status=["not-applied", "scheduled", "stopped"],
             )
-            if u["ServiceUpdateSeverity"] in severities
+            if u["ServiceUpdateType"] in service_updates_types
+            and u["ServiceUpdateSeverity"] in severities
             and u["ServiceUpdateReleaseDate"] < released_before
         ]
 

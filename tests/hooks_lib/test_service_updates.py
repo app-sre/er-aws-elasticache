@@ -14,7 +14,7 @@ SERVICE_UPDATE_ITEM = ServiceUpdate(
     release_date=dt(2025, 1, 1),
     severity="critical",
     status="not-applied",
-    type="security",
+    type="security-update",
 )
 RAW_SERVICE_UPDATE_ITEM = {
     "ServiceUpdateName": SERVICE_UPDATE_ITEM.name,
@@ -44,26 +44,42 @@ def test_service_updates_update_in_progress(
 
 
 @pytest.mark.parametrize(
-    ("service_updates", "severities", "released_before", "expected"),
+    (
+        "service_updates",
+        "service_updates_types",
+        "severities",
+        "released_before",
+        "expected",
+    ),
     [
         # no service updates
-        ([], ["critical"], dt(2025, 1, 1), []),
+        ([], ["security-update"], ["critical"], dt(2025, 1, 1), []),
         # no service updates with the specified severity
-        ([RAW_SERVICE_UPDATE_ITEM], ["low"], dt(2025, 1, 1), []),
+        ([RAW_SERVICE_UPDATE_ITEM], ["security-update"], ["low"], dt(2025, 1, 1), []),
+        # no service updates with the specified type
+        ([RAW_SERVICE_UPDATE_ITEM], ["maintenance"], ["critical"], dt(2025, 1, 1), []),
         # no service updates released before the specified date
-        ([RAW_SERVICE_UPDATE_ITEM], ["critical"], dt(2024, 1, 1), []),
-        # service updates with the specified severity and released before the specified date
         (
             [RAW_SERVICE_UPDATE_ITEM],
+            ["security-update"],
+            ["critical"],
+            dt(2024, 1, 1),
+            [],
+        ),
+        # service updates with the specified type, severity and released before the specified date
+        (
+            [RAW_SERVICE_UPDATE_ITEM],
+            [SERVICE_UPDATE_ITEM.type],
             [SERVICE_UPDATE_ITEM.severity],
             SERVICE_UPDATE_ITEM.release_date + timedelta(days=1),
             [SERVICE_UPDATE_ITEM],
         ),
     ],
 )
-def test_service_updates_list_service_updates(
+def test_service_updates_list_service_updates(  # noqa: PLR0913
     mocker: MockerFixture,
     service_updates: list,
+    service_updates_types: Sequence[str],
     severities: Sequence[str],
     released_before: dt,
     *,
@@ -74,7 +90,10 @@ def test_service_updates_list_service_updates(
     sumgr = ServiceUpdatesManager(
         "test-replication-group-id", "us-west-2", aws_api_class=aws_api_class
     )
-    assert sumgr.service_updates(severities, released_before) == expected
+    assert (
+        sumgr.service_updates(service_updates_types, severities, released_before)
+        == expected
+    )
 
 
 @pytest.mark.parametrize("update_in_progress", [True, False])
