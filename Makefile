@@ -60,13 +60,12 @@ terraform-test:
 	terraform -chdir=terraform init
 	terraform -chdir=terraform validate
 	terraform -chdir=terraform fmt -check
-	@echo "Testing Terraform configuration syntax with example values..."
-	@terraform -chdir=terraform plan -var-file=tests/test.auto.tfvars.json -out=/dev/null 2>/dev/null || \
-		echo "Note: Plan failed as expected without AWS credentials, but syntax validation passed"
 	@echo "Basic Terraform tests completed successfully!"
 
 .PHONY: terraform-test-full
 terraform-test-full: terraform-test
+	@echo "Testing Terraform configuration syntax with example values..."
+	@terraform -chdir=terraform plan -var-file=tests/test.auto.tfvars.json -out=/dev/null 2>/dev/null
 	@echo "Running Terraform native tests (requires AWS credentials)..."
 	terraform -chdir=terraform test
 	@echo "All Terraform tests completed!"
