@@ -48,16 +48,16 @@ elasticache = [
 
 [[package]]
 name = "botocore"
-version = "1.40.16"
+version = "1.40.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/25/4c/7087a282f10dc2258a107e4a29645678b5d3fa7cbabed05d540370aa8c57/botocore-1.40.16.tar.gz", hash = "sha256:522a8b7e3837667aca978b5b2dd2d12c3834f58f13df3c8d3369070d883d608d", size = 14368291, upload-time = "2025-08-22T19:28:20.227Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/87/92b520e7f4ac2a64c6e68bedc1dc3c1335a5aa1efb89a4247b45e34e40ac/botocore-1.40.17.tar.gz", hash = "sha256:769cd04a6a612f2d48b5f456c676fd81733fab682870952f7e2887260ea6a2bc", size = 14375996, upload-time = "2025-08-25T19:37:11.692Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/5c/81ff55d99c0f38fdcaee693228a6af61486f368fe7e49bc27da1317682b9/botocore-1.40.16-py3-none-any.whl", hash = "sha256:0296a245cb349431279d825522ae70270edf8d8be7b91108fdcc086ea347c0b6", size = 14030380, upload-time = "2025-08-22T19:28:14.793Z" },
+    { url = "https://files.pythonhosted.org/packages/67/fd/bcc913de90d6f0549a04ee40caaf7d4e76efb5a622fc6cc47379f686e50f/botocore-1.40.17-py3-none-any.whl", hash = "sha256:603951935c1a741ae70236bf15725c5293074f28503e7029ad0e24ece476a342", size = 14035937, upload-time = "2025-08-25T19:37:06.75Z" },
 ]
 
 [[package]]
@@ -231,11 +231,11 @@ wheels = [
 
 [[package]]
 name = "mypy-boto3-ec2"
-version = "1.40.13"
+version = "1.40.17"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6f/71/2a4d8a80283ae2716788bd85484cd2d2a391e14233b35ae40480322be773/mypy_boto3_ec2-1.40.13.tar.gz", hash = "sha256:c3d686f52d3bf6a823119e4225c3b344eb1828425570f9d954c9efa5811a837d", size = 404597, upload-time = "2025-08-19T20:45:16.117Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8c/15/e50ff2a0af356a75ec918a1451361ad96b6ccdfe2e5da969e3f758a2e615/mypy_boto3_ec2-1.40.17.tar.gz", hash = "sha256:3f9af61a68013f53939cfead411bd7f5392cc8f64932627f3592693423293881", size = 404750, upload-time = "2025-08-25T19:43:38.122Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/18/dd879a450f40215d6e8825578b51f41fadd12f116fef3543d8568d0c2f4a/mypy_boto3_ec2-1.40.13-py3-none-any.whl", hash = "sha256:22b4f486d66a30976842483ce40c38ffdaa6fdf1f94a163e5fb2825aa6386ca4", size = 393810, upload-time = "2025-08-19T20:45:11.025Z" },
+    { url = "https://files.pythonhosted.org/packages/38/85/bc484da1a8b888d87f0261da550e5574add50e678600cd4cca0cd0aa5e68/mypy_boto3_ec2-1.40.17-py3-none-any.whl", hash = "sha256:baedcbfbf031cf947ed2daeffa66d0cd00158d2f3694f3f385cf1eba618b9d10", size = 393991, upload-time = "2025-08-25T19:43:34.353Z" },
 ]
 
 [[package]]
@@ -513,11 +513,11 @@ wheels = [
 
 [[package]]
 name = "typing-extensions"
-version = "4.14.1"
+version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/98/5a/da40306b885cc8c09109dc2e1abd358d5684b1425678151cdaed4731c822/typing_extensions-4.14.1.tar.gz", hash = "sha256:38b39f4aeeab64884ce9f74c94263ef78f3c22467c8724005483154c26648d36", size = 107673, upload-time = "2025-07-04T13:28:34.16Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466", size = 109391, upload-time = "2025-08-25T13:49:26.313Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/00/d631e67a838026495268c2f6884f3711a15a9a2a96cd244fdaea53b823fb/typing_extensions-4.14.1-py3-none-any.whl", hash = "sha256:d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76", size = 43906, upload-time = "2025-07-04T13:28:32.743Z" },
+    { url = "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548", size = 44614, upload-time = "2025-08-25T13:49:24.86Z" },
 ]
 
 [[package]]
