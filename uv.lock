@@ -48,28 +48,28 @@ elasticache = [
 
 [[package]]
 name = "botocore"
-version = "1.40.24"
+version = "1.40.25"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c2/aa/229503199f4d1533db327b69509487b9e73604c735506e92be266d744b61/botocore-1.40.24.tar.gz", hash = "sha256:af2b49e52950a12229440d7c297aaad0a7b75fd1c4f8700b164948b207a08cf0", size = 14328213, upload-time = "2025-09-04T19:21:56.488Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/ba/7faa7e1061c2d2d60700815928ec0e5a7eeb83c5311126eccc6125e1797b/botocore-1.40.25.tar.gz", hash = "sha256:41fd186018a48dc517a4312a8d3085d548cb3fb1f463972134140bf7ee55a397", size = 14331329, upload-time = "2025-09-05T19:23:12.37Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/79/19e515fdba3d6ced97344fc2d6cc81454f77fad049724f2126b7ab83f332/botocore-1.40.24-py3-none-any.whl", hash = "sha256:d566840f2291bb5df1c0903ad385c61c865927d562d41dcf6468c9cee4cc313a", size = 14001934, upload-time = "2025-09-04T19:21:52.667Z" },
+    { url = "https://files.pythonhosted.org/packages/45/e5/4c32b35109bc3f8f8ebe3d78f952d2bf702bacce975a45997cc268c11860/botocore-1.40.25-py3-none-any.whl", hash = "sha256:5603ea9955cd31974446f0b5688911a5dad71fbdfbf7457944cda8a83fcf2a9e", size = 14003384, upload-time = "2025-09-05T19:23:09.731Z" },
 ]
 
 [[package]]
 name = "botocore-stubs"
-version = "1.40.24"
+version = "1.40.25"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "types-awscrt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0e/1e/e2ac001eb2123a0731948bbe21002d7d0e73b7d76849a0a8c7c4d92a58ba/botocore_stubs-1.40.24.tar.gz", hash = "sha256:25f33a6256b606879a822f197cfe42e8157a749c6c83a86a1c3c1e8e978462aa", size = 42737, upload-time = "2025-09-04T20:25:17.879Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/6b/c38b34da65a93a299ec5aef97c8faeb4812d0d18f41303b3a1a919bbfe80/botocore_stubs-1.40.25.tar.gz", hash = "sha256:47e5308a2bc566ff69c0506830370af99fd29504b5077c2dbe31da0ff32cc32d", size = 42753, upload-time = "2025-09-05T20:25:44.399Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/13/90c8d0637f03b76977b2e60c4d6dd792b65c12007f5f8c6ab6a579889d25/botocore_stubs-1.40.24-py3-none-any.whl", hash = "sha256:4aaebdd82770ee10f601c1919b79771d94dae061e017600812a608a5f778ac2a", size = 66844, upload-time = "2025-09-04T20:25:15.536Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/64/1e58877fd43ffafba3daafa64b2b6032be09f0ed0412c112cf2de2cc964f/botocore_stubs-1.40.25-py3-none-any.whl", hash = "sha256:ddd3f7d8e50ad227ca9337c2ac2049c4269908766a4a5d1273a5b5d727c38fc3", size = 66844, upload-time = "2025-09-05T20:25:42.35Z" },
 ]
 
 [[package]]
@@ -480,7 +480,7 @@ wheels = [
 
 [[package]]
 name = "typer"
-version = "0.17.3"
+version = "0.17.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -488,9 +488,9 @@ dependencies = [
     { name = "shellingham" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/82/f4bfed3bc18c6ebd6f828320811bbe4098f92a31adf4040bee59c4ae02ea/typer-0.17.3.tar.gz", hash = "sha256:0c600503d472bcf98d29914d4dcd67f80c24cc245395e2e00ba3603c9332e8ba", size = 103517, upload-time = "2025-08-30T12:35:24.05Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/e8/2a73ccf9874ec4c7638f172efc8972ceab13a0e3480b389d6ed822f7a822/typer-0.17.4.tar.gz", hash = "sha256:b77dc07d849312fd2bb5e7f20a7af8985c7ec360c45b051ed5412f64d8dc1580", size = 103734, upload-time = "2025-09-05T18:14:40.746Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/e8/b3d537470e8404659a6335e7af868e90657efb73916ef31ddf3d8b9cb237/typer-0.17.3-py3-none-any.whl", hash = "sha256:643919a79182ab7ac7581056d93c6a2b865b026adf2872c4d02c72758e6f095b", size = 46494, upload-time = "2025-08-30T12:35:22.391Z" },
+    { url = "https://files.pythonhosted.org/packages/93/72/6b3e70d32e89a5cbb6a4513726c1ae8762165b027af569289e19ec08edd8/typer-0.17.4-py3-none-any.whl", hash = "sha256:015534a6edaa450e7007eba705d5c18c3349dcea50a6ad79a5ed530967575824", size = 46643, upload-time = "2025-09-05T18:14:39.166Z" },
 ]
 
 [[package]]
