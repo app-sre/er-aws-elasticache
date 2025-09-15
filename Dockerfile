@@ -1,6 +1,6 @@
 FROM quay.io/redhat-services-prod/app-sre-tenant/er-base-terraform-main/er-base-terraform-main:0.3.8-13@sha256:a991d0835739fbed914f6433b0ce281939a4b47e65e6bdd4d994a953e50a63f6 AS base
 # keep in sync with pyproject.toml
-LABEL konflux.additional-tags="0.6.0"
+LABEL konflux.additional-tags="0.7.0"
 ENV TERRAFORM_MODULE_SRC_DIR="./terraform"
 ENV \
     # Use the virtual environment
