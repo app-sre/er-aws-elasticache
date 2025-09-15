@@ -173,4 +173,4 @@ tmp/
 .gen
 .terraform
 terraform/backend.tf
-terraform/tfvars.json
+terraform/terraform.tfvars.json

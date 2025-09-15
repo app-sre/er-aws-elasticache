@@ -137,18 +137,10 @@ run "validate_tags_configuration" {
       Environment = "test"
       Component   = "elasticache"
     }
-    default_tags_tf = {
-      Organization = "test-org"
-    }
   }
 
   assert {
     condition     = var.tags["Environment"] == "test"
     error_message = "Resource tags should be configurable"
-  }
-
-  assert {
-    condition     = var.default_tags_tf["Organization"] == "test-org"
-    error_message = "Default tags should be configurable"
   }
 }

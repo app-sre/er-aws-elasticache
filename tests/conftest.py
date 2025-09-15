@@ -41,7 +41,6 @@ def raw_input_data() -> dict:
                 "environment": "production",
                 "app": "elasticache-example",
             },
-            "default_tags": [{"tags": {"app": "app-sre-infra"}}],
             "region": "us-east-1",
             "parameter_group_name": "elasticache-example-01-pg",
             "environment": "production",

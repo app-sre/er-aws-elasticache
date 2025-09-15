@@ -23,16 +23,6 @@ variable "availability_zones" {
   default = []
 }
 
-variable "default_tags" {
-  type    = list(map(any))
-  default = []
-}
-
-variable "default_tags_tf" {
-  type    = map(any)
-  default = null
-}
-
 variable "engine" {
   type = string
 }
@@ -172,8 +162,8 @@ variable "subnet_group_name" {
 }
 
 variable "tags" {
-  type    = map(any)
-  default = null
+  type    = map(string)
+  default = {}
 }
 
 variable "transit_encryption_enabled" {

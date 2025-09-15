@@ -34,11 +34,6 @@ run "default_tags_applied_to_resources" {
   command = plan
 
   variables {
-    default_tags_tf = {
-      Organization = "test-org"
-      CostCenter   = "engineering"
-      Environment  = "test"
-    }
     tags = {
       Component = "elasticache"
       Team      = "platform"
@@ -85,36 +80,6 @@ run "parameter_group_inherits_tags" {
   }
 }
 
-run "default_tags_structure_validation" {
-  command = plan
-
-  variables {
-    default_tags = [
-      {
-        tags = {
-          Organization = "test-org"
-          CostCenter   = "engineering"
-        }
-      }
-    ]
-    default_tags_tf = {
-      Organization = "test-org"
-      CostCenter   = "engineering"
-    }
-  }
-
-  # Verify that both default_tags and default_tags_tf variables are accepted
-  assert {
-    condition     = length(var.default_tags) == 1
-    error_message = "default_tags should accept list of tag maps"
-  }
-
-  assert {
-    condition     = var.default_tags_tf["Organization"] == "test-org"
-    error_message = "default_tags_tf should accept direct map of tags"
-  }
-}
-
 run "random_provider_availability" {
   command = plan
 
@@ -143,38 +108,11 @@ run "multi_region_support" {
   }
 }
 
-run "tags_merge_behavior" {
-  command = plan
-
-  variables {
-    default_tags_tf = {
-      Environment = "production"
-      Team        = "platform"
-    }
-    tags = {
-      Component   = "elasticache"
-      Environment = "test" # This should override default
-    }
-  }
-
-  # Resource-specific tags should take precedence over default tags
-  assert {
-    condition     = aws_elasticache_replication_group.this.tags["Environment"] == "test"
-    error_message = "Resource tags should override default tags when there's a conflict"
-  }
-
-  assert {
-    condition     = aws_elasticache_replication_group.this.tags["Component"] == "elasticache"
-    error_message = "Resource tags should be preserved when no conflict"
-  }
-}
-
 run "empty_tags_handling" {
   command = plan
 
   variables {
-    tags            = null
-    default_tags_tf = null
+    tags = null
   }
 
   # Module should handle null tags gracefully
