@@ -49,8 +49,14 @@ def mock_aws_api(mock_aws_client: MagicMock) -> Generator[MagicMock, None, None]
 
         # Mock get_cache_group_subnets
         aws_api.get_cache_group_subnets.return_value = [
-            {"SubnetIdentifier": "subnet-123"},
-            {"SubnetIdentifier": "subnet-456"},
+            {
+                "SubnetIdentifier": "subnet-123",
+                "SubnetAvailabilityZone": {"Name": "us-east-1a"},
+            },
+            {
+                "SubnetIdentifier": "subnet-456",
+                "SubnetAvailabilityZone": {"Name": "us-east-1b"},
+            },
         ]
 
         # Mock get_subnets
@@ -269,7 +275,7 @@ def test_replication_group_validate_subnets_same_vpc(
     mock_aws_api: MagicMock,  # noqa: ARG001
 ) -> None:
     """ReplicationGroup: Test subnet validation with subnets in same VPC"""
-    vpc_id = validator._validate_subnets("test-subnet-group")
+    vpc_id = validator._validate_subnets("test-subnet-group", availability_zones=[])
 
     assert vpc_id == "vpc-123"
     assert validator.errors == []
@@ -284,7 +290,7 @@ def test_replication_group_validate_subnets_different_vpcs(
         {"SubnetId": "subnet-456", "VpcId": "vpc-456"},
     ]
 
-    validator._validate_subnets("test-subnet-group")
+    validator._validate_subnets("test-subnet-group", availability_zones=[])
     assert len(validator.errors) == 1
     assert "same VPC" in validator.errors[0]
 
@@ -298,9 +304,22 @@ def test_replication_group_validate_subnets_missing_vpc_id(
         {"SubnetId": "subnet-456", "VpcId": "vpc-456"},
     ]
 
-    validator._validate_subnets("test-subnet-group")
+    validator._validate_subnets("test-subnet-group", availability_zones=[])
     assert len(validator.errors) == 1
     assert "VpcId not found" in validator.errors[0]
+
+
+def test_replication_group_validate_subnets_bad_availability_zones(
+    validator: ElasticachePlanValidator,
+    mock_aws_api: MagicMock,  # noqa: ARG001
+) -> None:
+    """ReplicationGroup: Test subnet validation with not covered availability zones"""
+    validator._validate_subnets("test-subnet-group", availability_zones=["some-zone"])
+    assert len(validator.errors) == 1
+    assert (
+        "Subnet group test-subnet-group does not cover all requested"
+        in validator.errors[0]
+    )
 
 
 def test_replication_group_validate_security_groups_valid(
@@ -417,6 +436,7 @@ def test_replication_group_validate_create(
         replication_group_id="test-cluster",
         subnet_group_name="test-subnet-group",
         security_groups=["sg-123", "sg-456"],
+        availability_zones=["us-east-1a"],
     )
 
     assert validator.errors == []

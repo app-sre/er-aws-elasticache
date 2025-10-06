@@ -109,7 +109,9 @@ class ElasticachePlanValidator:
         except self.aws_api.client.exceptions.ReplicationGroupNotFoundFault:
             pass
 
-    def _validate_subnets(self, cache_subnet_group_name: str) -> str | None:
+    def _validate_subnets(
+        self, cache_subnet_group_name: str, availability_zones: Sequence[str]
+    ) -> str | None:
         logger.info(f"Validating Elasticache subnet group {cache_subnet_group_name}")
 
         vpc_ids: set[str] = set()
@@ -127,8 +129,21 @@ class ElasticachePlanValidator:
                 )
                 continue
             vpc_ids.add(subnet["VpcId"])
+
         if len(vpc_ids) > 1:
             self.errors.append("All subnets must belong to the same VPC")
+
+        # Check that all requested availability zones are covered by the subnet group
+        cache_group_subnet_availability_zones = {
+            s.get("SubnetAvailabilityZone", {}).get("Name") for s in cache_group_subnets
+        }
+        if not cache_group_subnet_availability_zones.issuperset(availability_zones):
+            self.errors.append(
+                f"Subnet group {cache_subnet_group_name} does not cover all requested availability zones {availability_zones}. "
+                f"Available zones: {cache_group_subnet_availability_zones} "
+                "If unsure, just remove the availability_zones from your configuration and use the subnet group defaults."
+            )
+
         return vpc_ids.pop()
 
     def _validate_security_groups(
@@ -171,12 +186,16 @@ class ElasticachePlanValidator:
         replication_group_id: str,
         subnet_group_name: str,
         security_groups: Sequence[str],
+        availability_zones: Sequence[str],
     ) -> None:
         """Validate a single replication group change"""
         # Only validate replication group ID for new resources
         self._validate_replication_group_id(replication_group_id)
 
-        if vpc_id := self._validate_subnets(cache_subnet_group_name=subnet_group_name):
+        if vpc_id := self._validate_subnets(
+            cache_subnet_group_name=subnet_group_name,
+            availability_zones=availability_zones,
+        ):
             self._validate_security_groups(
                 security_groups=security_groups, vpc_id=vpc_id
             )
@@ -217,6 +236,9 @@ class ElasticachePlanValidator:
                     replication_group_id=change.change.after["replication_group_id"],
                     subnet_group_name=change.change.after["subnet_group_name"],
                     security_groups=change.change.after["security_group_ids"],
+                    availability_zones=change.change.after.get(
+                        "preferred_cache_cluster_azs", []
+                    ),
                 )
 
             # Run validation for version changes
