@@ -135,7 +135,9 @@ class ElasticachePlanValidator:
 
         # Check that all requested availability zones are covered by the subnet group
         cache_group_subnet_availability_zones = {
-            s.get("SubnetAvailabilityZone", {}).get("Name") for s in cache_group_subnets
+            name
+            for s in cache_group_subnets
+            if (name := s.get("SubnetAvailabilityZone", {}).get("Name"))
         }
         if not cache_group_subnet_availability_zones.issuperset(availability_zones):
             self.errors.append(
