@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from external_resources_io.config import EnvVar
 
-from er_aws_elasticache.__main__ import get_ai_input  # noqa: PLC2701
+from er_aws_elasticache.__main__ import get_ai_input
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 
