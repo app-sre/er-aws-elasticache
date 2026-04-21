@@ -57,16 +57,16 @@ elasticache = [
 
 [[package]]
 name = "botocore"
-version = "1.42.90"
+version = "1.42.92"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/86/cf/4eaa0b7ab2ba0b2a0c93e277779b1385127e2f07876a08d698b529affdae/botocore-1.42.90.tar.gz", hash = "sha256:234c39492cd3088acb021d999e3392a4d50238ae3e70b9d9ae1504c30d9009d1", size = 15209231, upload-time = "2026-04-16T20:27:29.323Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/0a/6785ce224ba4483b3e1282d959e1dd2c2898823336f013464c43cb154036/botocore-1.42.92.tar.gz", hash = "sha256:f1193d3057a2d0267353d7ef4e136be37ea432336d097fcb1951fae566ca3a22", size = 15235239, upload-time = "2026-04-20T19:38:05.085Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/1e/44afcdc3b526b6e1569dd142083c6ed1cb8b92b4141de1c78ded883b449a/botocore-1.42.90-py3-none-any.whl", hash = "sha256:5c95504720346990adc8e3ae1023eb46f9409084b79688e4773ba7099c5fd3db", size = 14892274, upload-time = "2026-04-16T20:27:24.057Z" },
+    { url = "https://files.pythonhosted.org/packages/32/b8/41d4d7ba75a4fb4f11362e96371a12695bc6ba0bb7cc680137db0213f97e/botocore-1.42.92-py3-none-any.whl", hash = "sha256:09ddefddbb1565ceef4b44b4b6e61b1ca5f12701d1494ecc85c1133d1b1e81fb", size = 14916275, upload-time = "2026-04-20T19:38:01.684Z" },
 ]
 
 [[package]]
@@ -267,11 +267,11 @@ wheels = [
 
 [[package]]
 name = "mypy-boto3-ec2"
-version = "1.42.85"
+version = "1.42.92"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/22/ed/c632443d9ff2d9e9124657ca7a2440aaf956dcb5c3b26f2449f66529c490/mypy_boto3_ec2-1.42.85.tar.gz", hash = "sha256:6187ee026bd54b820a9ea44ea02cd48ddd8ed0acac8609d5210d2705487c2a14", size = 443394, upload-time = "2026-04-07T19:51:13.006Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/da/c3/add69069f6cf1542d777c8c22f0761e69ebb60828d95e0bfe2c093c3949e/mypy_boto3_ec2-1.42.92.tar.gz", hash = "sha256:8304787fd1e030df1fd60787d9a2fc7b3d70b3ebae1de2559c4d2d7df7cb0118", size = 444590, upload-time = "2026-04-20T19:55:05.197Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/4c/1f4a786652811913108e0144c6f472ba301e7fc9a7f46e71e7d34aa5c30d/mypy_boto3_ec2-1.42.85-py3-none-any.whl", hash = "sha256:ec39260ce9e8caf4d0dcf1a3d06bc05875930a9988fdbb7aa56cc54e7206adf0", size = 432468, upload-time = "2026-04-07T19:51:09.456Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/8d/12ffdb20d52ea2f7096aa40b703671281bfbd62cd1cd0b1b23833660f6f8/mypy_boto3_ec2-1.42.92-py3-none-any.whl", hash = "sha256:1f70b84b574372a6bb1fd4f7fe5cdc5a570299cc8919e7fe509e92a003d5ae2c", size = 433552, upload-time = "2026-04-20T19:55:02.419Z" },
 ]
 
 [[package]]
@@ -365,16 +365,16 @@ wheels = [
 
 [[package]]
 name = "pydantic-settings"
-version = "2.13.1"
+version = "2.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/52/6d/fffca34caecc4a3f97bda81b2098da5e8ab7efc9a66e819074a11955d87e/pydantic_settings-2.13.1.tar.gz", hash = "sha256:b4c11847b15237fb0171e1462bf540e294affb9b86db4d9aa5c01730bdbe4025", size = 223826, upload-time = "2026-02-19T13:45:08.055Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/42/98/c8345dccdc31de4228c039a98f6467a941e39558da41c1744fbe29fa5666/pydantic_settings-2.14.0.tar.gz", hash = "sha256:24285fd4b0e0c06507dd9fdfd331ee23794305352aaec8fc4eb92d4047aeb67d", size = 235709, upload-time = "2026-04-20T13:37:40.293Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/4b/ccc026168948fec4f7555b9164c724cf4125eac006e176541483d2c959be/pydantic_settings-2.13.1-py3-none-any.whl", hash = "sha256:d56fd801823dbeae7f0975e1f8c8e25c258eb75d278ea7abb5d9cebb01b56237", size = 58929, upload-time = "2026-02-19T13:45:06.034Z" },
+    { url = "https://files.pythonhosted.org/packages/01/dd/bebff3040138f00ae8a102d426b27349b9a49acc310fcae7f92112d867e3/pydantic_settings-2.14.0-py3-none-any.whl", hash = "sha256:fc8d5d692eb7092e43c8647c1c35a3ecd00e040fcf02ed86f4cb5458ca62182e", size = 60940, upload-time = "2026-04-20T13:37:38.586Z" },
 ]
 
 [[package]]
