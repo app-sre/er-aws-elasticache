@@ -21,7 +21,7 @@ documentation = "https://github.com/app-sre/er-aws-elasticache"
 dev = [
     "boto3-stubs-lite[elasticache,ec2]==1.43.6",
     "external-resources-io[cli]==0.6.4",
-    "mypy==1.20.2",
+    "mypy==2.1.0",
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "pytest==9.0.3",
