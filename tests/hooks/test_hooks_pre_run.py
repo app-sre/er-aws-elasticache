@@ -1,9 +1,14 @@
-import pytest
-from pytest_mock import MockerFixture
+from typing import TYPE_CHECKING
 
-from er_aws_elasticache.app_interface_input import AppInterfaceInput
+import pytest
+
 from hooks.pre_run import main
 from hooks_lib.service_updates import ServiceUpdatesManager
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
+    from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 
 @pytest.mark.parametrize("update_in_progress", [True, False])

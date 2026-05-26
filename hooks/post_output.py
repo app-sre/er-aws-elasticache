@@ -3,11 +3,14 @@
 import json
 import logging
 import sys
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from external_resources_io.config import Config
 from external_resources_io.log import setup_logging
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 logger = logging.getLogger(__name__)
 

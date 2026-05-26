@@ -1,11 +1,11 @@
 [project]
 name = "er-aws-elasticache"
-version = "0.8.1"
+version = "0.9.0"
 description = "ERv2 module for managing AWS Elasticache clusters"
 authors = [{ name = "AppSRE", email = "sd-app-sre@redhat.com" }]
 license = { text = "Apache 2.0" }
 readme = "README.md"
-requires-python = "~= 3.12.0"
+requires-python = "~= 3.14.0"
 dependencies = [
     "boto3==1.43.6",
     "external-resources-io==0.6.4",
@@ -39,7 +39,6 @@ build-backend = "hatchling.build"
 # Ruff configuration
 [tool.ruff]
 line-length = 88
-target-version = 'py312'
 src = ["er_aws_elasticache", "tests", "hooks", "hooks_lib"]
 fix = true
 
@@ -84,6 +83,13 @@ preview = true
 
 [tool.ruff.lint.isort]
 known-first-party = ["er_aws_elasticache", "hooks", "hooks_lib"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+runtime-evaluated-decorators = [
+    "pydantic.validate_call",
+    "dataclasses.dataclass",
+]
 
 # Mypy configuration
 [tool.mypy]

@@ -1,5 +1,5 @@
 # ruff: noqa: SLF001
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,8 +11,12 @@ from external_resources_io.terraform import (
     TerraformJsonPlanParser,
 )
 
-from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks.post_plan import ElasticachePlanValidator, EngineInfo
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 
 @pytest.fixture
@@ -41,7 +45,7 @@ def mock_aws_client() -> MagicMock:
 
 
 @pytest.fixture
-def mock_aws_api(mock_aws_client: MagicMock) -> Generator[MagicMock, None, None]:
+def mock_aws_api(mock_aws_client: MagicMock) -> Generator[MagicMock]:
     """Mock AWSApi instance"""
     with patch("hooks.post_plan.AWSApi") as mock_aws_api_class:
         aws_api = MagicMock()

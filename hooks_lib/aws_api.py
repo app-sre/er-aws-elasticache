@@ -1,12 +1,13 @@
 import logging
 import operator
-from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from boto3 import Session
 from botocore.config import Config
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
     from mypy_boto3_ec2.client import EC2Client
     from mypy_boto3_ec2.type_defs import SecurityGroupTypeDef
     from mypy_boto3_ec2.type_defs import SubnetTypeDef as EC2SubnetTypeDef
