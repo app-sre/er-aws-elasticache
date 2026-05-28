@@ -22,6 +22,8 @@ image_tests:
 	# test all files in ./hooks are executable
 	[ -z "$(shell for f in hooks/*; do [ ! -x "$$f" ] && [ "$$f" != "hooks/__init__.py" ] && echo not-executable; done)" ]
 
+	# test venv
+	[ -x "$(shell command -v generate-tf-config)" ] || { echo "ERROR: generate-tf-config not found or not executable"; exit 1; }
 
 .PHONY: code_tests
 code_tests:
