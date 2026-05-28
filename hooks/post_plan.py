@@ -2,8 +2,8 @@
 
 import logging
 import sys
-from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from external_resources_io.config import Config
 from external_resources_io.input import parse_model, read_input_from_file
@@ -16,6 +16,9 @@ from external_resources_io.terraform import (
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib.aws_api import AWSApi
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 

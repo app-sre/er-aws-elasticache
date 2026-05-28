@@ -1,13 +1,17 @@
 # ruff: noqa: DTZ001
-from collections.abc import Sequence
 from datetime import datetime as dt
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import pytest
-from pytest_mock import MockerFixture
 
 from hooks_lib.aws_api import AWSApi
 from hooks_lib.service_updates import ServiceUpdate, ServiceUpdatesManager
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from pytest_mock import MockerFixture
 
 SERVICE_UPDATE_ITEM = ServiceUpdate(
     name="test-service-update",

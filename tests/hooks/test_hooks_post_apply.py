@@ -1,5 +1,6 @@
 # ruff: noqa: DTZ005
 from datetime import datetime as dt
+from typing import TYPE_CHECKING
 
 import pytest
 from external_resources_io.terraform import (
@@ -7,15 +8,18 @@ from external_resources_io.terraform import (
     ResourceChange,
     TerraformJsonPlanParser,
 )
-from pytest_mock import MockerFixture
 
-from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks.post_apply import (
     default_cooldown,
     main,
     terraform_changes,
 )
 from hooks_lib.service_updates import ServiceUpdate
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
+    from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 SERVICE_UPDATE_ITEM = ServiceUpdate(
     name="update-1",

@@ -1,7 +1,11 @@
+from typing import TYPE_CHECKING
+
 import pytest
-from pytest_mock import MockerFixture
 
 from hooks_lib.aws_api import AWSApi
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 @pytest.fixture

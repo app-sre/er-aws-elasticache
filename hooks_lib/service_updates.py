@@ -1,10 +1,13 @@
 import logging
 import time
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from hooks_lib.aws_api import AWSApi
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 
