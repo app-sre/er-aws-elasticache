@@ -43,6 +43,6 @@ from hooks.post_output import check
         ),
     ],
 )
-def test_post_checks_check(outputs: dict, expected: bool) -> None:  # noqa: FBT001
+def test_post_checks_check(outputs: dict, expected: bool) -> None:  # ruff: ignore[boolean-type-hint-positional-argument]
     """Test the check function."""
     assert check(outputs) == expected

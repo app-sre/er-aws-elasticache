@@ -1,4 +1,4 @@
-# ruff: noqa: SLF001
+# ruff: file-ignore[private-member-access]
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -135,7 +135,7 @@ def parameter_group_change() -> ResourceChange:
 def validator(
     terraform_plan: MagicMock,
     ai_input: AppInterfaceInput,
-    mock_aws_api: MagicMock,  # noqa: ARG001
+    mock_aws_api: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> ElasticachePlanValidator:
     """ElasticachePlanValidator instance"""
     return ElasticachePlanValidator(terraform_plan, ai_input)
@@ -276,7 +276,7 @@ def test_replication_group_validate_id_exists(
 
 def test_replication_group_validate_subnets_same_vpc(
     validator: ElasticachePlanValidator,
-    mock_aws_api: MagicMock,  # noqa: ARG001
+    mock_aws_api: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> None:
     """ReplicationGroup: Test subnet validation with subnets in same VPC"""
     vpc_id = validator._validate_subnets("test-subnet-group", availability_zones=[])
@@ -315,7 +315,7 @@ def test_replication_group_validate_subnets_missing_vpc_id(
 
 def test_replication_group_validate_subnets_bad_availability_zones(
     validator: ElasticachePlanValidator,
-    mock_aws_api: MagicMock,  # noqa: ARG001
+    mock_aws_api: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> None:
     """ReplicationGroup: Test subnet validation with not covered availability zones"""
     validator._validate_subnets("test-subnet-group", availability_zones=["some-zone"])
@@ -328,7 +328,7 @@ def test_replication_group_validate_subnets_bad_availability_zones(
 
 def test_replication_group_validate_security_groups_valid(
     validator: ElasticachePlanValidator,
-    mock_aws_api: MagicMock,  # noqa: ARG001
+    mock_aws_api: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> None:
     """ReplicationGroup: Test security group validation with valid groups"""
     validator._validate_security_groups(["sg-123", "sg-456"], "vpc-123")
@@ -448,7 +448,7 @@ def test_replication_group_validate_create(
 
 def test_replication_group_validate_update(
     validator: ElasticachePlanValidator,
-    mock_aws_client: MagicMock,  # noqa: ARG001
+    mock_aws_client: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> None:
     """ReplicationGroup: Test cluster upgrade validation for update action"""
     validator._validate_cluster_upgrade(
@@ -523,7 +523,7 @@ def test_parameter_group_validate_create(
 
 def test_parameter_group_validate_update(
     validator: ElasticachePlanValidator,
-    mock_aws_client: MagicMock,  # noqa: ARG001
+    mock_aws_client: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> None:
     """ParameterGroup: Test parameter group validation for update action"""
     engine_info = EngineInfo(name="redis", family="redis7.x", version="7.0.7")

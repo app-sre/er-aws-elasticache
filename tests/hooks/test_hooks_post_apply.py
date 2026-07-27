@@ -1,4 +1,4 @@
-# ruff: noqa: DTZ005
+# ruff: file-ignore[call-datetime-now-without-tzinfo]
 from datetime import datetime as dt
 from typing import TYPE_CHECKING
 
@@ -84,7 +84,7 @@ def test_default_cooldown(
         ([SERVICE_UPDATE_ITEM], True, True, False),
     ],
 )
-def test_main(  # noqa: PLR0913
+def test_main(  # ruff: ignore[too-many-arguments]
     mocker: MockerFixture,
     service_updates: list[ServiceUpdate],
     *,
