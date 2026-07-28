@@ -1,4 +1,4 @@
-# ruff: noqa: DTZ001
+# ruff: file-ignore[call-datetime-without-tzinfo]
 from datetime import datetime as dt
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -80,7 +80,7 @@ def test_service_updates_update_in_progress(
         ),
     ],
 )
-def test_service_updates_list_service_updates(  # noqa: PLR0913
+def test_service_updates_list_service_updates(  # ruff: ignore[too-many-arguments]
     mocker: MockerFixture,
     service_updates: list,
     service_updates_types: Sequence[str],

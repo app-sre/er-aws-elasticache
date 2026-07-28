@@ -24,7 +24,7 @@ class Parameter(BaseModel):
 
     @field_validator("value", mode="before")
     @classmethod
-    def transform(cls, v: Any) -> str:  # noqa: ANN401
+    def transform(cls, v: Any) -> str:  # ruff: ignore[any-type]
         """Values come as int|str|float|bool from App-Interface, but terraform only allows str"""
         return str(v)
 
@@ -101,7 +101,7 @@ class ElasticacheData(BaseModel):
         if (
             self.automatic_failover_enabled
             and self.number_cache_clusters is not None
-            and self.number_cache_clusters < 2  # noqa: PLR2004
+            and self.number_cache_clusters < 2  # ruff: ignore[magic-value-comparison]
         ):
             raise ValueError(
                 "Automatic failover is not supported for clusters with less than 2 nodes. Set number_cache_clusters to 2 or more."
