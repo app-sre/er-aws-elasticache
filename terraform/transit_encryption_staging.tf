@@ -30,7 +30,15 @@ variable "transit_encryption_mode_override" {
 # distinction once the operation settles. Only exists once staging has actually
 # started (auth_token_update_strategy is non-null), so its presence/absence is
 # unambiguous.
+#
+# depends_on is required (this resource has no attribute reference to the
+# replication group): without it, Terraform has no ordering constraint between
+# the two, and this resource's apply always trivially succeeds (no AWS call).
+# If the replication group's ModifyReplicationGroup call failed, this marker
+# could still commit, and the next run would trust a false marker.
 resource "terraform_data" "auth_token_rotation" {
   count = var.transit_encryption_enabled && var.auth_token_update_strategy != null ? 1 : 0
   input = var.auth_token_update_strategy
+
+  depends_on = [aws_elasticache_replication_group.this]
 }

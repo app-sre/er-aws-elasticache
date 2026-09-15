@@ -117,17 +117,20 @@ def _next_auth_token_update_strategy(
         # yet - this is unambiguously a first-time introduction
         return "ROTATE"
 
-    if marker and marker.get("input") != "SET":
-        # a previous run rotated a new token in; finalize it now
-        return "SET"
-
     prev_reset_password = ((random_password or {}).get("keepers") or {}).get(
         "reset_password"
     )
     if prev_reset_password != (app_interface_input.data.reset_password or None):
-        # tenant requested a new password; start a new rotate/set cycle
+        # tenant requested a new password - restart the rotate/set cycle even
+        # if a previous rotation is still pending (marker == "ROTATE"):
+        # finalizing that marker with SET now would ask AWS to SET a token it
+        # never actually ROTATEd in, since random_password is about to be
+        # replaced with a new value in this same apply.
         return "ROTATE"
 
+    # password unchanged: either finalizing an already-pending rotation (a
+    # marker showing ROTATE) or steady-state (marker showing SET or absent) -
+    # both cases finalize/stay at SET.
     return "SET"
 
 

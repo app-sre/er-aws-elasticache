@@ -171,6 +171,30 @@ def test_reset_password_change_restarts_rotation(ai_input: AppInterfaceInput) ->
     assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
 
 
+def test_reset_password_change_during_pending_rotation_restarts_cycle(
+    ai_input: AppInterfaceInput,
+) -> None:
+    """A password change must win over a pending finalize.
+
+    marker.input == "ROTATE" means a previous run already rotated in the
+    OLD password. If reset_password changes again before the follow-up SET
+    apply, random_password will be replaced with a NEW value in this same
+    apply - finalizing with SET here would ask AWS to SET a token it never
+    actually ROTATEd in. Must restart the cycle with ROTATE instead.
+    """
+    ai_input.data.reset_password = "reset-2"
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
+
+
 # compute_transit_encryption_mode
 
 
