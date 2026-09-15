@@ -1,6 +1,6 @@
 [project]
 name = "er-aws-elasticache"
-version = "0.9.0"
+version = "0.10.0"
 description = "ERv2 module for managing AWS Elasticache clusters"
 authors = [{ name = "AppSRE", email = "sd-app-sre@redhat.com" }]
 license = { text = "Apache 2.0" }
@@ -46,24 +46,25 @@ fix = true
 preview = true
 select = ["ALL"]
 ignore = [
-    "CPY",    # Missing copyright header
-    "undocumented-public-module",   # Missing docstring in public module
-    "undocumented-public-function",   # Missing docstring in public function
-    "undocumented-public-package",   # Missing docstring in public package
-    "undocumented-public-init",   # Missing docstring in __init__
-    "incorrect-blank-line-before-class",   # 1 blank line required before class docstring
-    "blank-line-before-class",   # No blank lines allowed before class docstring
-    "multi-line-summary-first-line",   # multi-line-summary-first-line
-    "multi-line-summary-second-line",   # multi-line-summary-second-line
-    "D4",     # Doc string style
-    "line-too-long",   # Line too long
-    "logging-f-string",   # Logging statement uses string formatting
-    "assert",   # Use of assert detected. Pytest uses assert
-    "subprocess-without-shell-equals-true",   # subprocess.Popen without shell=True
-    "start-process-with-partial-path",   # Starting a process with a partial executable path
+    "CPY",                                  # Missing copyright header
+    "undocumented-public-module",           # Missing docstring in public module
+    "undocumented-public-function",         # Missing docstring in public function
+    "undocumented-public-package",          # Missing docstring in public package
+    "undocumented-public-init",             # Missing docstring in __init__
+    "incorrect-blank-line-before-class",    # 1 blank line required before class docstring
+    "blank-line-before-class",              # No blank lines allowed before class docstring
+    "multi-line-summary-first-line",        # multi-line-summary-first-line
+    "multi-line-summary-second-line",       # multi-line-summary-second-line
+    "D4",                                   # Doc string style
+    "line-too-long",                        # Line too long
+    "logging-f-string",                     # Logging statement uses string formatting
+    "assert",                               # Use of assert detected. Pytest uses assert
+    "subprocess-without-shell-equals-true", # subprocess.Popen without shell=True
+    "start-process-with-partial-path",      # Starting a process with a partial executable path
     "raw-string-in-exception",
     "f-string-in-exception",
     "raise-vanilla-args",
+    "pytest-fixture-autouse",               # pytest-fixture-autouse (https://github.com/astral-sh/ruff/issues/26178)
     # pydoclint
     "DOC",
     # May conflict with the formatter, https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
@@ -77,10 +78,15 @@ ignore = [
     "missing-trailing-comma",
     "prohibited-trailing-comma",
     "single-line-implicit-string-concatenation",
-    "pytest-fixture-autouse",  # pytest-fixture-autouse (https://github.com/astral-sh/ruff/issues/26178)
 ]
 [tool.ruff.format]
 preview = true
+
+[tool.ruff.lint.per-file-ignores]
+# False positives: these are Terraform resource-address constants and the real
+# `reset_password` field name, not hardcoded secrets.
+"hooks/pre_plan.py" = ["hardcoded-password-string"]
+"tests/hooks/test_hooks_pre_plan.py" = ["hardcoded-password-string"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["er_aws_elasticache", "hooks", "hooks_lib"]

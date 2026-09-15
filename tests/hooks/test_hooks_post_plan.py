@@ -428,6 +428,195 @@ def test_replication_group_validate_apply_immediately_for_version_change_correct
     assert validator.errors == []
 
 
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ({"transit_encryption_enabled": False}, {"transit_encryption_enabled": True}),
+        (
+            {"transit_encryption_mode": "preferred"},
+            {"transit_encryption_mode": "required"},
+        ),
+        (
+            {"auth_token_update_strategy": "ROTATE"},
+            {"auth_token_update_strategy": "SET"},
+        ),
+    ],
+)
+def test_replication_group_validate_apply_immediately_for_encryption_changes_required(
+    validator: ElasticachePlanValidator,
+    before: dict[str, object],
+    after: dict[str, object],
+) -> None:
+    """ReplicationGroup: apply_immediately is required for each of the three encryption-related fields"""
+    validator._validate_apply_immediately_for_encryption_changes(
+        before=before, after=after, apply_immediately=False
+    )
+    assert len(validator.errors) == 1
+    assert "apply_immediately must be true" in validator.errors[0]
+
+
+def test_replication_group_validate_apply_immediately_for_encryption_changes_correct(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: Test apply_immediately validation when correctly set"""
+    validator._validate_apply_immediately_for_encryption_changes(
+        before={"transit_encryption_enabled": False},
+        after={"transit_encryption_enabled": True},
+        apply_immediately=True,
+    )
+    assert validator.errors == []
+
+
+def test_replication_group_validate_encryption_changes_unchanged(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: No error when nothing relevant changed, even without apply_immediately"""
+    validator._validate_apply_immediately_for_encryption_changes(
+        before={"transit_encryption_enabled": True},
+        after={"transit_encryption_enabled": True},
+        apply_immediately=False,
+    )
+    assert validator.errors == []
+
+
+def test_validate_transit_encryption_mode_missing_rejected(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: enabling transit_encryption_enabled without transit_encryption_mode=required is rejected"""
+    validator.input.data.transit_encryption_mode = None
+    validator._validate_transit_encryption_mode(
+        before_transit_encryption_enabled=False,
+        after_transit_encryption_enabled=True,
+    )
+    assert len(validator.errors) == 1
+    assert "transit_encryption_mode must be set to 'required'" in validator.errors[0]
+
+
+def test_validate_transit_encryption_mode_preferred_rejected(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: "preferred" is never accepted as the tenant's final declared mode for this transition"""
+    validator.input.data.transit_encryption_mode = "preferred"
+    validator._validate_transit_encryption_mode(
+        before_transit_encryption_enabled=False,
+        after_transit_encryption_enabled=True,
+    )
+    assert len(validator.errors) == 1
+    assert "transit_encryption_mode must be set to 'required'" in validator.errors[0]
+
+
+def test_validate_transit_encryption_mode_required_accepted(
+    validator: ElasticachePlanValidator,
+) -> None:
+    validator.input.data.transit_encryption_mode = "required"
+    validator._validate_transit_encryption_mode(
+        before_transit_encryption_enabled=False,
+        after_transit_encryption_enabled=True,
+    )
+    assert validator.errors == []
+
+
+def test_validate_transit_encryption_mode_not_enabling_skips_check(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: the check only applies to the false->true enabling transition"""
+    validator.input.data.transit_encryption_mode = None
+    validator._validate_transit_encryption_mode(
+        before_transit_encryption_enabled=True,
+        after_transit_encryption_enabled=True,
+    )
+    assert validator.errors == []
+
+
+def test_validate_transit_encryption_engine_support_blocks_when_replace_planned(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: blocked whenever Terraform itself plans a replace (ActionDelete present).
+
+    Deliberately engine/version-agnostic: this defers to the pinned Terraform
+    AWS provider's own decision instead of a hardcoded version threshold, so
+    it stays correct even if support for other engines/versions changes
+    later - see hooks/post_plan.py docstring.
+    """
+    validator._validate_transit_encryption_engine_support(
+        before_transit_encryption_enabled=False,
+        after_transit_encryption_enabled=True,
+        actions=[Action.ActionDelete, Action.ActionCreate],
+        engine_info=EngineInfo(name="redis", family="redis6.x", version="6.2"),
+    )
+    assert len(validator.errors) == 1
+    assert "would replace the cluster" in validator.errors[0]
+
+
+def test_validate_transit_encryption_engine_support_allows_in_place_update(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: allowed whenever Terraform can apply this as an in-place update"""
+    validator._validate_transit_encryption_engine_support(
+        before_transit_encryption_enabled=False,
+        after_transit_encryption_enabled=True,
+        actions=[Action.ActionUpdate],
+        engine_info=EngineInfo(name="valkey", family="valkey7", version="7.2"),
+    )
+    assert validator.errors == []
+
+
+def test_validate_transit_encryption_engine_support_skips_when_not_enabling(
+    validator: ElasticachePlanValidator,
+) -> None:
+    """ReplicationGroup: the check only applies to the false->true enabling transition"""
+    validator._validate_transit_encryption_engine_support(
+        before_transit_encryption_enabled=True,
+        after_transit_encryption_enabled=True,
+        actions=[Action.ActionDelete, Action.ActionCreate],
+        engine_info=EngineInfo(name="redis", family="redis6.x", version="6.2"),
+    )
+    assert validator.errors == []
+
+
+def test_validate_transit_encryption_engine_support_fires_on_replace_action(
+    validator: ElasticachePlanValidator, mock_aws_client: MagicMock
+) -> None:
+    """ReplicationGroup: must fire for a replace plan (older engines force delete+create, not update)"""
+    mock_aws_client.describe_cache_engine_versions.return_value = {
+        "CacheEngineVersions": [{"CacheParameterGroupFamily": "redis6.x"}]
+    }
+    mock_aws_client.describe_replication_groups.side_effect = (
+        mock_aws_client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    change = ResourceChange(
+        address="aws_elasticache_replication_group.test",
+        mode="managed",
+        type="aws_elasticache_replication_group",
+        name="test",
+        provider_name="registry.terraform.io/hashicorp/aws",
+        change=Change(
+            actions=[Action.ActionDelete, Action.ActionCreate],
+            before={
+                "engine": "redis",
+                "engine_version": "6.2",
+                "transit_encryption_enabled": False,
+            },
+            after={
+                "engine": "redis",
+                "engine_version": "6.2",
+                "transit_encryption_enabled": True,
+                "replication_group_id": "test-cluster",
+                "subnet_group_name": "test-subnet-group",
+                "security_group_ids": ["sg-123"],
+                "apply_immediately": True,
+            },
+            after_unknown=None,
+        ),
+    )
+    validator.plan.plan.resource_changes = [change]
+
+    result = validator.validate()
+
+    assert result is False
+    assert any("would replace the cluster" in error for error in validator.errors)
+
+
 def test_replication_group_validate_create(
     validator: ElasticachePlanValidator, mock_aws_client: MagicMock
 ) -> None:

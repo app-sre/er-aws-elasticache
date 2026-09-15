@@ -29,7 +29,7 @@ resource "aws_elasticache_parameter_group" "this" {
 }
 
 resource "random_password" "this" {
-  count   = var.transit_encryption_enabled ? 1 : 0
+  count   = var.transit_encryption_enabled && var.auth_token_update_strategy != null ? 1 : 0
   length  = 20
   special = true
   keepers = var.reset_password != null && var.reset_password != "" ? {
@@ -41,8 +41,8 @@ resource "random_password" "this" {
 resource "aws_elasticache_replication_group" "this" {
   apply_immediately           = var.apply_immediately
   at_rest_encryption_enabled  = var.at_rest_encryption_enabled
-  auth_token                  = var.transit_encryption_enabled ? random_password.this[0].result : null
-  auth_token_update_strategy  = var.transit_encryption_enabled ? "SET" : null
+  auth_token                  = var.transit_encryption_enabled && var.auth_token_update_strategy != null ? random_password.this[0].result : null
+  auth_token_update_strategy  = var.transit_encryption_enabled ? var.auth_token_update_strategy : null
   automatic_failover_enabled  = var.automatic_failover_enabled
   description                 = var.replication_group_description
   engine                      = var.engine
@@ -64,7 +64,7 @@ resource "aws_elasticache_replication_group" "this" {
   subnet_group_name           = var.subnet_group_name
   tags                        = var.tags
   transit_encryption_enabled  = var.transit_encryption_enabled
-  transit_encryption_mode     = var.transit_encryption_mode
+  transit_encryption_mode     = var.transit_encryption_mode_override != null ? var.transit_encryption_mode_override : var.transit_encryption_mode
 
   dynamic "log_delivery_configuration" {
     for_each = var.log_delivery_configuration

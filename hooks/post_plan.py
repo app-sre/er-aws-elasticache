@@ -18,7 +18,8 @@ from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib.aws_api import AWSApi
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
+    from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,91 @@ class ElasticachePlanValidator:
                 f"{before_engine} {before_version} to {after_engine} {after_version}"
             )
 
+    def _validate_apply_immediately_for_encryption_changes(
+        self,
+        *,
+        before: Mapping[str, Any],
+        after: Mapping[str, Any],
+        apply_immediately: bool,
+    ) -> None:
+        """Validate that apply_immediately is true when encryption-related fields change.
+
+        AWS rejects a ModifyReplicationGroup call touching transit_encryption_enabled
+        or transit_encryption_mode without apply_immediately: "Transit encryption
+        modification should be called with applied immediately option." AUTH token
+        changes have the same requirement per AWS's own AUTH docs.
+        """
+        changed_fields = [
+            field
+            for field in (
+                "transit_encryption_enabled",
+                "transit_encryption_mode",
+                "auth_token_update_strategy",
+            )
+            if before.get(field) != after.get(field)
+        ]
+        if changed_fields and not apply_immediately:
+            self.errors.append(
+                f"apply_immediately must be true when changing {', '.join(changed_fields)}"
+            )
+
+    def _validate_transit_encryption_mode(
+        self,
+        *,
+        before_transit_encryption_enabled: bool | None,
+        after_transit_encryption_enabled: bool | None,
+    ) -> None:
+        """Validate that transit_encryption_mode is "required" when enabling transit_encryption_enabled.
+
+        This module always introduces an auth token once transit_encryption_enabled
+        is true, and AWS only accepts auth token changes once transit_encryption_mode
+        is "required" - so "preferred" (or unset) is never a valid final tenant
+        target for this transition, only a transient staging value computed by
+        hooks/pre_plan.py. Reject it up front instead of leaving the reconciler
+        stuck waiting on transit_encryption_mode forever.
+        """
+        if (
+            not before_transit_encryption_enabled
+            and after_transit_encryption_enabled
+            and self.input.data.transit_encryption_mode != "required"
+        ):
+            self.errors.append(
+                "transit_encryption_mode must be set to 'required' when enabling "
+                "transit_encryption_enabled on an existing resource"
+            )
+
+    def _validate_transit_encryption_engine_support(
+        self,
+        *,
+        before_transit_encryption_enabled: bool | None,
+        after_transit_encryption_enabled: bool | None,
+        actions: Sequence[Action],
+        engine_info: EngineInfo,
+    ) -> None:
+        """Block enabling transit_encryption_enabled when it would replace the cluster.
+
+        Rather than hardcoding AWS's minimum engine version for enabling
+        transit encryption in-place (a number that could drift, or need
+        revisiting if this module ever supports other engines/versions),
+        defer to the pinned Terraform AWS provider's own decision: it already
+        knows the real threshold and plans a replace (ActionDelete alongside
+        ActionCreate) instead of an in-place update whenever the engine/version
+        doesn't support this ModifyReplicationGroup call. If Terraform would
+        replace it, block outright - that means destroy + recreate, destroying
+        all data - rather than relying on a tenant noticing a `-/+` in a plan
+        diff before approving it.
+        """
+        if before_transit_encryption_enabled or not after_transit_encryption_enabled:
+            return  # not the no-auth -> auth enabling transition
+        if Action.ActionDelete not in actions:
+            return  # Terraform can apply this in place; supported
+        self.errors.append(
+            "Enabling transit_encryption_enabled on this resource "
+            f"({engine_info.name} {engine_info.version}) would replace the "
+            "cluster (destroy and recreate), destroying all data. Upgrade the "
+            "engine first, then enable encryption as a separate, later change."
+        )
+
     def _validate_replication_group(
         self,
         replication_group_id: str,
@@ -236,6 +322,11 @@ class ElasticachePlanValidator:
             assert change.change  # mypy
             assert change.change.after  # mypy
 
+            engine_info = self.get_engine_version(
+                engine=change.change.after["engine"],
+                engine_version=change.change.after["engine_version"],
+            )
+
             if Action.ActionCreate in change.change.actions:
                 self._validate_replication_group(
                     replication_group_id=change.change.after["replication_group_id"],
@@ -244,6 +335,22 @@ class ElasticachePlanValidator:
                     availability_zones=change.change.after.get(
                         "preferred_cache_cluster_azs", []
                     ),
+                )
+
+            if change.change.before is not None:
+                # Existing resource - whether Terraform plans this as an
+                # in-place update or a replace (older engines force a replace
+                # for a transit_encryption_enabled change), so this must not
+                # be gated on Action.ActionUpdate alone.
+                self._validate_transit_encryption_engine_support(
+                    before_transit_encryption_enabled=change.change.before.get(
+                        "transit_encryption_enabled"
+                    ),
+                    after_transit_encryption_enabled=change.change.after.get(
+                        "transit_encryption_enabled"
+                    ),
+                    actions=change.change.actions,
+                    engine_info=engine_info,
                 )
 
             # Run validation for version changes
@@ -258,11 +365,21 @@ class ElasticachePlanValidator:
                         "apply_immediately", False
                     ),
                 )
-
-            engine_info = self.get_engine_version(
-                engine=change.change.after["engine"],
-                engine_version=change.change.after["engine_version"],
-            )
+                self._validate_apply_immediately_for_encryption_changes(
+                    before=change.change.before,
+                    after=change.change.after,
+                    apply_immediately=change.change.after.get(
+                        "apply_immediately", False
+                    ),
+                )
+                self._validate_transit_encryption_mode(
+                    before_transit_encryption_enabled=change.change.before.get(
+                        "transit_encryption_enabled"
+                    ),
+                    after_transit_encryption_enabled=change.change.after.get(
+                        "transit_encryption_enabled"
+                    ),
+                )
 
         for change in self.elasticache_parameter_group_updates:
             assert change.change  # mypy
