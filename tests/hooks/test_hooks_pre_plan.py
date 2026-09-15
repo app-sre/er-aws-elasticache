@@ -143,6 +143,32 @@ def test_random_password_created_but_marker_missing_treated_as_steady_state(
     assert compute_auth_token_update_strategy(ai_input, state) == "SET"
 
 
+def test_failed_first_rotation_attempt_is_indistinguishable_from_legacy_steady_state(
+    ai_input: AppInterfaceInput,
+) -> None:
+    """Known, accepted limitation - see README's "Known limitation" note.
+
+    random_password.this[0] must exist before aws_elasticache_replication_group.this
+    is applied (its auth_token references random_password.this[0].result), so unlike
+    the marker it cannot depends_on the replication group - it can commit to state
+    even if that same apply's ModifyReplicationGroup call fails. A failed first-ever
+    ROTATE therefore produces the exact same state shape as a genuine legacy resource
+    (marker absent, random_password present), and this returns "SET" here too - which
+    AWS will reject, stalling the reconcile loop until a human intervenes (see README).
+    This test pins that known behavior, not the desired one.
+    """
+    ai_input.data.reset_password = None
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "random_password.this[0]": {"keepers": None},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "SET"
+
+
 def test_steady_state_stays_set(ai_input: AppInterfaceInput) -> None:
     ai_input.data.reset_password = "reset-1"
     state = _state({
