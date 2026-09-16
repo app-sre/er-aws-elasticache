@@ -85,11 +85,22 @@ multi-apply sequence:
    work) and `SET` afterward, in a separate apply, to make it *required*
    ([AWS AUTH docs](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/auth.html)).
    Sending `SET` without a prior `ROTATE` fails with `There is no AUTH token to SET`.
-3. These two are coupled: AWS also rejects **any** AUTH token operation, including `ROTATE`,
-   while `transit_encryption_mode` is `"preferred"` (confirmed live —
-   `InvalidParameterValue: The AUTH token modification is only supported when
-   encryption-in-transit is enabled`). So the auth-token staging can't even begin until the
-   mode staging has landed on `"required"`.
+3. These two are coupled: AWS also rejects **any** AUTH token operation while
+   `transit_encryption_mode` is `"preferred"` — confirmed independently for both strategies,
+   not just inferred from one:
+   - `SET`: a historical incident (a different tenant's resource, already settled at
+     `preferred`) hit this rejecting an unrelated `SET`-only apply.
+   - `ROTATE`: verified directly during this PR's review — a dedicated, isolated test
+     (`transit_encryption_mode` already settled at `preferred` and left unchanged in that
+     apply; only `auth_token`/`auth_token_update_strategy=ROTATE` were new in the plan diff)
+     hit the identical error:
+     ```
+     InvalidParameterValue: The AUTH token modification is only supported when
+     encryption-in-transit is enabled.
+     ```
+
+   So the auth-token staging can't even begin until the mode staging has landed on
+   `"required"` — for either strategy, not just the one with pre-existing incident evidence.
 
    **Safety note**: the gate checks for a *confirmed* `"preferred"`, not "anything other than
    required" — a resource that predates `transit_encryption_mode` tracking (created before this
