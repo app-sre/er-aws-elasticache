@@ -1,0 +1,87 @@
+# Full regression test for PR #675 (APPSRE-15246): walk an ElastiCache resource
+# from no encryption/no-auth to required transit encryption + mandatory AUTH
+# token, asserting the exact exit code and pre_plan log line at every stage.
+# This is the automated version of the manual 5-loop e2e test run this session -
+# it would have caught both bugs found manually (wrong ROTATE/SET decision, and
+# a missing fast-retry sys.exit(1) on one loop).
+name: elasticache-noauth-to-auth
+description: >
+  Create an unauthenticated ElastiCache instance, then switch it to required
+  transit encryption + a mandatory AUTH token, verifying every reconcile loop.
+
+base_input: integration-tests/noauth-to-auth/base_input.json
+
+steps:
+  - name: create (no encryption)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "db_port = 6382"
+
+  - name: enable transit encryption - stages to preferred
+    input:
+      transit_encryption_enabled: true
+      transit_encryption_mode: required
+      apply_immediately: true
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 1  # fast-retry signal: staging incomplete
+      log_contains:
+        - "auth_token_update_strategy=None"
+        - "transit_encryption_mode_override='preferred'"
+
+  - name: preferred - required
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 1
+      log_contains:
+        - "auth_token_update_strategy=None"
+        - "transit_encryption_mode_override='required'"
+
+  - name: introduce auth token (ROTATE)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600  # observed up to ~8 minutes for this ModifyReplicationGroup call
+    expect:
+      exit_code: 1
+      log_contains:
+        - "auth_token_update_strategy='ROTATE'"
+        - "transit_encryption_mode_override=None"
+
+  - name: finalize auth token (SET)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "auth_token_update_strategy='SET'"
+        - "transit_encryption_mode_override=None"
+
+  - name: steady state - no further changes
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "No changes."
+
+cleanup:
+  name: destroy
+  input: {}
+  action: Destroy
+  dry_run: false
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"

@@ -122,8 +122,7 @@ variable "reset_password" {
 }
 
 variable "security_group_ids" {
-  type    = list(string)
-  default = []
+  type = list(string)
 }
 
 variable "service_updates_cooldown_days" {
@@ -168,7 +167,7 @@ variable "tags" {
 
 variable "transit_encryption_enabled" {
   type    = bool
-  default = null
+  default = false
 }
 
 variable "transit_encryption_mode" {

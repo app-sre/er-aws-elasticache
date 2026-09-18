@@ -1,0 +1,76 @@
+# Live regression coverage for the Finding 2 bug fixed in bbc161a
+# (hooks/pre_plan.py's _next_auth_token_update_strategy): if reset_password
+# changes while a rotation is still pending (marker shows ROTATE, not yet
+# finalized), the fix must restart the cycle for the NEW password instead of
+# incorrectly finalizing with SET for a token that was never actually
+# rotated in. Unit-tested (test_reset_password_change_during_pending_rotation_restarts_cycle),
+# never live-tested until this scenario.
+name: elasticache-password-change
+description: >
+  Create a cluster with auth already enabled (transit_encryption_enabled +
+  transit_encryption_mode: required + reset_password set from the start, so
+  no no-auth -> auth staging is needed - see the "full" scenario), then
+  change reset_password while a rotation is still pending (unfinalized) -
+  the exact edge case that was buggy before bbc161a.
+base_input: integration-tests/password-change/base_input.json
+steps:
+  - name: create (auth already enabled, password v1)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "db_port = 6383"
+
+  - name: change password to v2 (ROTATE)
+    input:
+      reset_password: "erv2-itest-pw-v2"
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 1
+      log_contains:
+        - "auth_token_update_strategy='ROTATE'"
+
+  - name: change password to v3 before v2 is finalized (must restart ROTATE)
+    input:
+      reset_password: "erv2-itest-pw-v3"
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 1
+      log_contains:
+        - "auth_token_update_strategy='ROTATE'"
+
+  - name: finalize auth token v3 (SET)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "auth_token_update_strategy='SET'"
+
+  - name: steady state - no further changes
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "No changes."
+
+cleanup:
+  name: destroy
+  input: {}
+  action: Destroy
+  dry_run: false
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"
