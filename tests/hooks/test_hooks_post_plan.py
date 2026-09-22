@@ -817,9 +817,11 @@ def test_validate_auth_token_rotation_with_apply_immediately_passes(
     validator: ElasticachePlanValidator,
     mock_aws_client: MagicMock,  # ruff: ignore[unused-function-argument]
 ) -> None:
-    """Validate: a well-formed reset_password change (apply_immediately: true set in the
-    same MR, matching the tenant-facing contract) must produce a clean plan end-to-end,
-    not just when the validator method is called in isolation.
+    """Validate: a well-formed reset_password change produces a clean plan.
+
+    apply_immediately: true set in the same MR (matching the tenant-facing
+    contract) must produce a clean plan end-to-end, not just when the
+    validator method is called in isolation.
     """
     change = ResourceChange(
         address="aws_elasticache_replication_group.test",
