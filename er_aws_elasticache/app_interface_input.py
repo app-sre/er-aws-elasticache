@@ -88,12 +88,32 @@ class ElasticacheData(BaseModel):
     availability_zones: Sequence[str] = []
     replicas_per_node_group: int | None = None
     replication_group_id: str
-    security_group_ids: Sequence[str] = []
+    security_group_ids: Sequence[str]
     snapshot_retention_limit: int | None = None
     snapshot_window: str | None = None
     subnet_group_name: str = "default"
-    transit_encryption_enabled: bool | None = None
+    transit_encryption_enabled: bool = False
     transit_encryption_mode: str | None = None
+
+    @model_validator(mode="after")
+    def default_number_cache_clusters_for_automatic_failover(self) -> Self:
+        """Fill in a minimum-valid number_cache_clusters when needed.
+
+        AWS requires at least 2 cache clusters when automatic failover is
+        requested. automatic_failover_enabled defaults to true (per the
+        tenant schema's own documented default), but number_cache_clusters
+        has no such default - only fill in the minimum valid value for the
+        non-cluster-mode path; cluster-mode-enabled tenants (num_node_groups
+        set) must keep number_cache_clusters unset, since the two are
+        mutually exclusive.
+        """
+        if (
+            self.automatic_failover_enabled
+            and self.number_cache_clusters is None
+            and self.num_node_groups is None
+        ):
+            self.number_cache_clusters = 2
+        return self
 
     @model_validator(mode="after")
     def automatic_failover(self) -> Self:

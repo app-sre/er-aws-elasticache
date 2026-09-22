@@ -1,13 +1,13 @@
 [project]
 name = "er-aws-elasticache"
-version = "0.10.0"
+version = "0.10.1"
 description = "ERv2 module for managing AWS Elasticache clusters"
 authors = [{ name = "AppSRE", email = "sd-app-sre@redhat.com" }]
 license = { text = "Apache 2.0" }
 readme = "README.md"
 requires-python = "~= 3.14.0"
 dependencies = [
-    "boto3==1.43.92",
+    "boto3==1.43.96",
     "external-resources-io==0.7.0",
     "pydantic==2.13.5",
 ]
@@ -19,13 +19,14 @@ documentation = "https://github.com/app-sre/er-aws-elasticache"
 
 [dependency-groups]
 dev = [
-    "boto3-stubs-lite[elasticache,ec2]==1.43.92",
+    "boto3-stubs-lite[elasticache,ec2]==1.43.96",
+    "erv2-itest==0.2.1",
     "external-resources-io[cli]==0.7.0",
     "mypy==2.3.1",
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "pytest==9.1.1",
-    "ruff==0.16.7",
+    "ruff==0.16.8",
 ]
 
 [project.scripts]

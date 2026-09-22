@@ -1,0 +1,63 @@
+# Engine upgrade per the tenant-facing guide:
+# https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/docs/platform-users/external-resources/aws/elasticache/elasticache-minor-major-engine-upgrade.md
+# "Due to license changes in Redis, the versions 7+ aren't supported anymore.
+# Please consider an engine upgrade to Valkey. You can directly upgrade your
+# Redis cluster to Valkey."
+name: elasticache-engine-upgrade
+description: >
+  Redis 6.2 -> Valkey 8.0 engine upgrade with a custom parameter group in
+  use: bump engine + engine_version, update the parameter group's family
+  (and therefore name, since family is immutable on an existing parameter
+  group), and require apply_immediately.
+base_input: integration-tests/engine-upgrade/base_input.json
+steps:
+  - name: create (redis 6.2, custom parameter group)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "db_port = 6381"
+
+  - name: upgrade to valkey 8.0 (new parameter group family + name)
+    input:
+      engine: valkey
+      engine_version: "8.0"
+      apply_immediately: true
+      parameter_group:
+        name: "{{run_id}}-custom-pg-v8"
+        family: "valkey8"
+        description: "erv2_itest parameter group (upgraded to valkey8)"
+        parameters:
+          - name: "tcp-keepalive"
+            value: "300"
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600 # AWS docs: ~30 min per cluster node, node-by-node rolling upgrade
+    expect:
+      exit_code: 0
+      log_contains:
+        - "Apply complete!"
+      log_not_contains:
+        - "Error:"
+
+  - name: apply again settles
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "No changes."
+
+cleanup:
+  name: destroy
+  input: {}
+  action: Destroy
+  dry_run: false
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"

@@ -174,3 +174,4 @@ tmp/
 .terraform
 terraform/backend.tf
 terraform/terraform.tfvars.json
+.erv2-itests/

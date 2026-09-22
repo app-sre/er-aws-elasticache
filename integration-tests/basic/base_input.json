@@ -1,0 +1,27 @@
+{
+  "data": {
+    "region": "us-east-1",
+    "identifier": "{{run_id}}",
+    "output_prefix": "{{run_id}}-elasticache",
+    "engine": "valkey",
+    "engine_version": "7.2",
+    "node_type": "cache.t4g.micro",
+    "replication_group_id": "{{run_id}}",
+    "security_group_ids": ["sg-0d44ec58a69cc7d62"]
+  },
+  "provision": {
+    "provision_provider": "aws",
+    "provisioner": "app-int-example-01",
+    "provider": "elasticache",
+    "identifier": "{{run_id}}",
+    "target_cluster": "appint-ex-01",
+    "target_namespace": "example-elasticache-01",
+    "target_secret_name": "{{run_id}}",
+    "module_provision_data": {
+      "tf_state_bucket": "external-resources-terraform-state-dev",
+      "tf_state_region": "us-east-1",
+      "tf_state_dynamodb_table": "external-resources-terraform-lock",
+      "tf_state_key": "aws/app-int-example-01/elasticache/{{run_id}}/terraform.tfstate"
+    }
+  }
+}

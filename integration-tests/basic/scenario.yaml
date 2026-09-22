@@ -1,0 +1,58 @@
+name: elasticache-minimal-required-fields
+description: >
+  Fast sanity check using ONLY the required fields from ElasticacheData
+  (region, identifier, output_prefix, engine, engine_version, node_type,
+  replication_group_id, security_group_ids - the last one is required by
+  the tenant-facing schema even though the pydantic model used to default
+  it to [], see below): create, confirm a second apply is a true no-op,
+  destroy. Proves every optional field's default is actually usable
+  end-to-end, not just accepted by pydantic - this exact scenario caught
+  two real bugs: transit_encryption_enabled defaulted to None, which
+  crashed Terraform with "Null condition" the moment it wasn't explicitly
+  set (fixed in e2fd35f); and an omitted/empty security_group_ids reached a
+  fragile direct dict-index in hooks/post_plan.py's validate() with a
+  KeyError (fixed by making the field required, matching the real
+  qontract-schema, instead of defaulting to []). Also the only scenario
+  that leaves `port` unset, so it's the sole remaining coverage for the
+  omitted-port path: db_port isn't available until a follow-up apply -
+  every other scenario sets an explicit port and settles in one apply.
+base_input: integration-tests/basic/base_input.json
+steps:
+  - name: create
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 1800
+    expect:
+      exit_code: 1 # db_port output isn't available until a follow-up apply
+      log_contains:
+        - "db_port output not found"
+
+  - name: db_port output
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 1800
+    expect:
+      exit_code: 0
+      log_not_contains:
+        - "Error:"
+
+  - name: apply again settles
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "No changes."
+
+cleanup:
+  name: destroy
+  input: {}
+  action: Destroy
+  dry_run: false
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"

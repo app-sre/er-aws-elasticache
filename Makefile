@@ -71,3 +71,7 @@ terraform-test-full: terraform-test
 	@echo "Running Terraform native tests (requires AWS credentials)..."
 	terraform -chdir=terraform test
 	@echo "All Terraform tests completed!"
+
+.PHONY: integration-tests
+integration-tests:
+	uv run erv2-itest

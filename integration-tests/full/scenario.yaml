@@ -1,0 +1,42 @@
+name: elasticache-full-options
+description: >
+  Create a cluster using every available ElasticacheData field (log
+  delivery, multi-AZ, custom port, service-update policy, parameter group,
+  initial reset_password, direct-to-required transit encryption on create)
+  together, not just each in isolation. transit_encryption_enabled is set
+  directly on create (no staging needed - "for a new cluster, just set
+  transit_encryption_enabled: true from the start" per the tenant docs).
+  Omits notification_topic_arn (no SNS topic exists in this dev account) and
+  num_node_groups/replicas_per_node_group (mutually exclusive with
+  number_cache_clusters/availability_zones, used here instead as the more
+  representative real-tenant path).
+base_input: integration-tests/full/base_input.json
+steps:
+  - name: create (all available options)
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "db_port = 6380"
+
+  - name: apply again settles
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "No changes."
+
+cleanup:
+  name: destroy
+  input: {}
+  action: Destroy
+  dry_run: false
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"
