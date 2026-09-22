@@ -11,7 +11,7 @@
     "transit_encryption_enabled": true,
     "transit_encryption_mode": "required",
     "reset_password": "erv2-itest-pw-v1",
-    "apply_immediately": false,
+    "apply_immediately": true,
     "security_group_ids": ["sg-0d44ec58a69cc7d62"],
     "maintenance_window": "wed:10:00-wed:11:00",
     "snapshot_window": "03:30-05:30",

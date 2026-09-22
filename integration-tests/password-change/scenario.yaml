@@ -34,6 +34,8 @@ steps:
       exit_code: 1
       log_contains:
         - "auth_token_update_strategy='ROTATE'"
+      log_not_contains:
+        - "apply_immediately must be true"
 
   - name: change password to v3 before v2 is finalized (must restart ROTATE)
     input:
@@ -45,6 +47,8 @@ steps:
       exit_code: 1
       log_contains:
         - "auth_token_update_strategy='ROTATE'"
+      log_not_contains:
+        - "apply_immediately must be true"
 
   - name: finalize auth token v3 (SET)
     input: {}

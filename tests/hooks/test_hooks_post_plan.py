@@ -440,6 +440,14 @@ def test_replication_group_validate_apply_immediately_for_version_change_correct
             {"auth_token_update_strategy": "ROTATE"},
             {"auth_token_update_strategy": "SET"},
         ),
+        (
+            {"auth_token_update_strategy": "SET"},
+            {"auth_token_update_strategy": "ROTATE"},
+        ),
+        (
+            {"auth_token_update_strategy": None},
+            {"auth_token_update_strategy": "ROTATE"},
+        ),
     ],
 )
 def test_replication_group_validate_apply_immediately_for_encryption_changes_required(
@@ -447,7 +455,7 @@ def test_replication_group_validate_apply_immediately_for_encryption_changes_req
     before: dict[str, object],
     after: dict[str, object],
 ) -> None:
-    """ReplicationGroup: apply_immediately is required for each of the three encryption-related fields"""
+    """ReplicationGroup: apply_immediately is required for each of the three encryption-related fields, in either direction"""
     validator._validate_apply_immediately_for_encryption_changes(
         before=before, after=after, apply_immediately=False
     )
@@ -455,14 +463,42 @@ def test_replication_group_validate_apply_immediately_for_encryption_changes_req
     assert "apply_immediately must be true" in validator.errors[0]
 
 
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ({"transit_encryption_enabled": False}, {"transit_encryption_enabled": True}),
+        (
+            {"transit_encryption_mode": "preferred"},
+            {"transit_encryption_mode": "required"},
+        ),
+        (
+            {"auth_token_update_strategy": "ROTATE"},
+            {"auth_token_update_strategy": "SET"},
+        ),
+        (
+            {"auth_token_update_strategy": "SET"},
+            {"auth_token_update_strategy": "ROTATE"},
+        ),
+        (
+            {"auth_token_update_strategy": None},
+            {"auth_token_update_strategy": "ROTATE"},
+        ),
+    ],
+)
 def test_replication_group_validate_apply_immediately_for_encryption_changes_correct(
     validator: ElasticachePlanValidator,
+    before: dict[str, object],
+    after: dict[str, object],
 ) -> None:
-    """ReplicationGroup: Test apply_immediately validation when correctly set"""
+    """ReplicationGroup: a well-formed tenant change (apply_immediately correctly set) must not be rejected.
+
+    Mirrors the "required" test above field-for-field and direction-for-direction -
+    a tenant setting reset_password together with apply_immediately: true in the
+    same MR (the normal, correct way to request a rotation) must see a clean plan,
+    not just a rejection when apply_immediately is missing.
+    """
     validator._validate_apply_immediately_for_encryption_changes(
-        before={"transit_encryption_enabled": False},
-        after={"transit_encryption_enabled": True},
-        apply_immediately=True,
+        before=before, after=after, apply_immediately=True
     )
     assert validator.errors == []
 
@@ -775,6 +811,48 @@ def test_validate_with_errors(
     result = validator.validate()
     assert result is False
     assert len(validator.errors) > 0
+
+
+def test_validate_auth_token_rotation_with_apply_immediately_passes(
+    validator: ElasticachePlanValidator,
+    mock_aws_client: MagicMock,  # ruff: ignore[unused-function-argument]
+) -> None:
+    """Validate: a well-formed reset_password change (apply_immediately: true set in the
+    same MR, matching the tenant-facing contract) must produce a clean plan end-to-end,
+    not just when the validator method is called in isolation.
+    """
+    change = ResourceChange(
+        address="aws_elasticache_replication_group.test",
+        mode="managed",
+        type="aws_elasticache_replication_group",
+        name="test",
+        provider_name="registry.terraform.io/hashicorp/aws",
+        change=Change(
+            actions=[Action.ActionUpdate],
+            before={
+                "engine": "redis",
+                "engine_version": "7.0.7",
+                "auth_token_update_strategy": "SET",
+                "transit_encryption_enabled": True,
+                "transit_encryption_mode": "required",
+            },
+            after={
+                "engine": "redis",
+                "engine_version": "7.0.7",
+                "auth_token_update_strategy": "ROTATE",
+                "transit_encryption_enabled": True,
+                "transit_encryption_mode": "required",
+                "apply_immediately": True,
+            },
+            after_unknown=None,
+        ),
+    )
+    validator.plan.plan.resource_changes = [change]
+
+    result = validator.validate()
+
+    assert result is True
+    assert validator.errors == []
 
 
 def test_validate_multiple_replication_groups(
