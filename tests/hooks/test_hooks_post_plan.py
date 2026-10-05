@@ -1,8 +1,11 @@
 # ruff: file-ignore[private-member-access]
+import logging
+import runpy
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+from botocore.exceptions import ClientError
 from external_resources_io.terraform import (
     Action,
     Change,
@@ -15,6 +18,8 @@ from hooks.post_plan import ElasticachePlanValidator, EngineInfo
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from pytest_mock import MockerFixture
 
     from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
@@ -50,6 +55,13 @@ def mock_aws_api(mock_aws_client: MagicMock) -> Generator[MagicMock]:
     with patch("hooks.post_plan.AWSApi") as mock_aws_api_class:
         aws_api = MagicMock()
         aws_api.client = mock_aws_client
+        aws_api.get_node_type_availability_zones.return_value = {
+            "us-east-1a",
+            "us-east-1b",
+        }
+        aws_api.get_replication_group_availability_zones.return_value = {
+            "us-east-1a",
+        }
 
         # Mock get_cache_group_subnets
         aws_api.get_cache_group_subnets.return_value = [
@@ -104,6 +116,7 @@ def replication_group_change() -> ResourceChange:
                 "replication_group_id": "test-cluster",
                 "engine": "redis",
                 "engine_version": "7.0.7",
+                "node_type": "cache.t4g.micro",
                 "subnet_group_name": "test-subnet-group",
                 "security_group_ids": ["sg-123", "sg-456"],
                 "apply_immediately": True,
@@ -142,7 +155,7 @@ def validator(
 
 
 def test_engine_info_creation() -> None:
-    """EngineInfo: Test dataclass instance creation"""
+    """EngineInfo: Test model instance creation"""
     engine_info = EngineInfo(name="redis", family="redis7.x", version="7.0.7")
 
     assert engine_info.name == "redis"
@@ -158,7 +171,7 @@ def test_engine_info_creation() -> None:
     ],
 )
 def test_engine_info_parametrized(name: str, family: str, version: str) -> None:
-    """EngineInfo: Test dataclass creation with different engine types"""
+    """EngineInfo: Test model creation with different engine types"""
     engine_info = EngineInfo(name=name, family=family, version=version)
 
     assert engine_info.name == name
@@ -637,6 +650,7 @@ def test_validate_transit_encryption_engine_support_fires_on_replace_action(
                 "engine": "redis",
                 "engine_version": "6.2",
                 "transit_encryption_enabled": True,
+                "node_type": "cache.t4g.micro",
                 "replication_group_id": "test-cluster",
                 "subnet_group_name": "test-subnet-group",
                 "security_group_ids": ["sg-123"],
@@ -878,6 +892,7 @@ def test_validate_multiple_replication_groups(
                 before=None,
                 after={
                     "replication_group_id": f"test-cluster-{i}",
+                    "node_type": "cache.t4g.micro",
                     "engine": "redis",
                     "engine_version": "7.0.7",
                     "subnet_group_name": "test-subnet-group",
@@ -959,3 +974,492 @@ def test_resource_filtering(
 
     assert len(rg_updates) == expected_rg_count
     assert len(pg_updates) == expected_pg_count
+
+
+@pytest.mark.parametrize(
+    "actions",
+    [
+        [Action.ActionCreate],
+        [Action.ActionDelete, Action.ActionCreate],
+        [Action.ActionCreate, Action.ActionDelete],
+        [Action.ActionUpdate],
+    ],
+)
+@pytest.mark.parametrize("available", [True, False])
+def test_validate_node_type_in_requested_availability_zone(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    actions: list[Action],
+    *,
+    available: bool,
+) -> None:
+    """Reject unsupported placements before apply, including replacement plans."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = actions
+    replication_group_change.change.after |= {
+        "replication_group_id": "lightwell-experience-redis-stage",
+        "preferred_cache_cluster_azs": ["us-east-1e"],
+    }
+    if actions != [Action.ActionCreate]:
+        replication_group_change.change.before = {
+            **replication_group_change.change.after,
+            "node_type": "cache.t3.micro",
+            "replication_group_id": "old-cluster",
+        }
+    mock_aws_api.client.describe_replication_groups.side_effect = (
+        mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = {
+        "ScaleUpModifications": ["cache.t4g.micro"],
+        "ScaleDownModifications": [],
+    }
+    mock_aws_api.get_cache_group_subnets.return_value = [
+        {
+            "SubnetIdentifier": "subnet-123",
+            "SubnetAvailabilityZone": {"Name": "us-east-1e"},
+        }
+    ]
+    mock_aws_api.get_replication_group_availability_zones.return_value = {"us-east-1e"}
+    mock_aws_api.get_node_type_availability_zones.return_value = (
+        {"us-east-1e"} if available else {"us-east-1a"}
+    )
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is available
+    if not available:
+        assert any(
+            "lightwell-experience-redis-stage" in error
+            and "cache.t4g.micro" in error
+            and "us-east-1e" in error
+            for error in validator.errors
+        )
+    mock_aws_api.get_node_type_availability_zones.assert_called_once_with(
+        node_type="cache.t4g.micro"
+    )
+
+
+@pytest.mark.parametrize("availability_zones", [[], None])
+@pytest.mark.parametrize("available", [True, False])
+def test_validate_automatic_placement_uses_eligible_subnet_zones(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    availability_zones: list[str] | None,
+    *,
+    available: bool,
+) -> None:
+    """An unused unsupported AZ must not block AWS's automatic placement."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.after["preferred_cache_cluster_azs"] = (
+        availability_zones
+    )
+    replication_group_change.change.after |= {
+        "automatic_failover_enabled": True,
+        "num_cache_clusters": 2,
+        "multi_az_enabled": None,
+    }
+    mock_aws_api.client.describe_replication_groups.side_effect = (
+        mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    mock_aws_api.get_node_type_availability_zones.return_value = (
+        {"us-east-1a"} if available else {"us-east-1c"}
+    )
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is available
+    if not available:
+        assert any("not offered" in error for error in validator.errors)
+
+
+def test_validate_node_type_update_checks_current_member_zones(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    mock_aws_client: MagicMock,
+) -> None:
+    """A resize must validate occupied AZs, not unrelated subnet-group AZs."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "node_type": "cache.t3.micro",
+    }
+    mock_aws_client.list_allowed_node_type_modifications.return_value = {
+        "ScaleUpModifications": ["cache.t4g.micro"],
+    }
+    mock_aws_api.get_replication_group_availability_zones.return_value = {"us-east-1e"}
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is False
+    assert any("us-east-1e" in error for error in validator.errors)
+    mock_aws_api.get_replication_group_availability_zones.assert_called_once_with(
+        replication_group_id="test-cluster"
+    )
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+@pytest.mark.parametrize(
+    "modification_type", ["ScaleUpModifications", "ScaleDownModifications"]
+)
+def test_validate_resize_checks_elasticache_allowed_node_types(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_client: MagicMock,
+    modification_type: str,
+    *,
+    allowed: bool,
+) -> None:
+    """EC2 offerings alone must not override ElastiCache's resize restrictions."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "node_type": "cache.t3.micro",
+    }
+    mock_aws_client.list_allowed_node_type_modifications.return_value = {
+        modification_type: ["cache.t4g.micro"] if allowed else [],
+    }
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is allowed
+    if not allowed:
+        assert any(
+            "cache.t4g.micro" in error and "test-cluster" in error
+            for error in validator.errors
+        )
+    mock_aws_client.list_allowed_node_type_modifications.assert_called_once_with(
+        ReplicationGroupId="test-cluster"
+    )
+
+
+@pytest.mark.parametrize(
+    "field", ["num_cache_clusters", "num_node_groups", "replicas_per_node_group"]
+)
+@pytest.mark.parametrize("available", [True, False])
+def test_validate_scale_out_checks_subnet_zones(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    field: str,
+    *,
+    available: bool,
+) -> None:
+    """Automatic scale-out needs an eligible subnet AZ, not every subnet AZ."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.after[field] = 3
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        field: 2,
+    }
+    mock_aws_api.get_node_type_availability_zones.return_value = (
+        {"us-east-1a"} if available else {"us-east-1c"}
+    )
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is available
+    if not available:
+        assert any("not offered" in error for error in validator.errors)
+
+
+def test_validate_unrelated_update_skips_node_type_availability(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Do not block unrelated changes or removal of nodes on placement checks."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.after["num_cache_clusters"] = 2
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "num_cache_clusters": 3,
+    }
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is True
+    mock_aws_api.get_node_type_availability_zones.assert_not_called()
+
+
+def test_validate_availability_api_error_is_not_success(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    mock_aws_client: MagicMock,
+) -> None:
+    """Preserve AWS errors instead of treating missing permissions as availability."""
+    mock_aws_client.describe_replication_groups.side_effect = (
+        mock_aws_client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    mock_aws_api.get_node_type_availability_zones.side_effect = ClientError(
+        {"Error": {"Code": "UnauthorizedOperation", "Message": "access denied"}},
+        "DescribeInstanceTypeOfferings",
+    )
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    with pytest.raises(ClientError, match=r"UnauthorizedOperation.*access denied"):
+        validator.validate()
+
+
+def test_validate_replacement_can_reuse_id_after_destroy(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_client: MagicMock,
+) -> None:
+    """A destroy-before-create replacement is not a duplicate resource name."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionDelete, Action.ActionCreate]
+    replication_group_change.change.before = dict(replication_group_change.change.after)
+    mock_aws_client.describe_replication_groups.return_value = {
+        "ReplicationGroups": [{"ReplicationGroupId": "test-cluster"}]
+    }
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is True
+    mock_aws_client.describe_replication_groups.assert_not_called()
+
+
+def test_validate_placement_update_requires_subnet_zone_membership(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """An offered AZ is still invalid if the target subnet group does not cover it."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = dict(replication_group_change.change.after)
+    replication_group_change.change.after["preferred_cache_cluster_azs"] = [
+        "us-east-1e"
+    ]
+    mock_aws_api.get_node_type_availability_zones.return_value = {
+        "us-east-1a",
+        "us-east-1b",
+        "us-east-1e",
+    }
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is False
+    assert any(
+        "test-subnet-group" in error and "us-east-1e" in error
+        for error in validator.errors
+    )
+
+
+def test_validate_unspecified_placement_normalization_is_not_scale_out(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Null and empty preferred AZs both mean automatic placement."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "preferred_cache_cluster_azs": None,
+    }
+    replication_group_change.change.after["preferred_cache_cluster_azs"] = []
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is True
+    mock_aws_api.get_node_type_availability_zones.assert_not_called()
+
+
+def test_validate_resize_does_not_check_unused_subnet_zones(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """An unsupported but unoccupied subnet AZ must not block a valid resize."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "node_type": "cache.t3.micro",
+    }
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = {
+        "ScaleDownModifications": ["cache.t4g.micro"],
+    }
+    mock_aws_api.get_node_type_availability_zones.return_value = {"us-east-1a"}
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is True
+    mock_aws_api.get_cache_group_subnets.assert_not_called()
+
+
+def test_validate_combined_engine_and_node_type_change_uses_planned_placement(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Current-engine resize targets cannot predict the planned upgraded engine."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "engine_version": "6.2",
+        "node_type": "cache.t3.micro",
+    }
+    mock_aws_api.get_node_type_availability_zones.return_value = {"us-east-1a"}
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is True
+    mock_aws_api.client.list_allowed_node_type_modifications.assert_not_called()
+    mock_aws_api.get_node_type_availability_zones.assert_called_once_with(
+        node_type="cache.t4g.micro"
+    )
+
+
+def test_validate_resize_fails_without_current_member_zones(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Missing placement metadata must not silently pass validation."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "node_type": "cache.t3.micro",
+    }
+    mock_aws_api.get_replication_group_availability_zones.return_value = set()
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is False
+    assert any(
+        "Cannot determine availability zones" in error and "test-cluster" in error
+        for error in validator.errors
+    )
+
+
+@pytest.fixture
+def post_plan_hook(
+    mocker: MockerFixture,
+    ai_input: AppInterfaceInput,
+    terraform_plan: MagicMock,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Run the actual hook with mocked input, plan and AWS I/O."""
+    mocker.patch("external_resources_io.log.setup_logging")
+    mocker.patch("external_resources_io.input.read_input_from_file", return_value={})
+    mocker.patch("external_resources_io.input.parse_model", return_value=ai_input)
+    mocker.patch(
+        "external_resources_io.terraform.TerraformJsonPlanParser",
+        return_value=terraform_plan,
+    )
+    mocker.patch("hooks_lib.aws_api.AWSApi", return_value=mock_aws_api)
+    mock_aws_api.client.describe_replication_groups.side_effect = (
+        mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    terraform_plan.plan.resource_changes = [replication_group_change]
+
+
+@pytest.mark.usefixtures("post_plan_hook")
+@pytest.mark.parametrize("dry_run", ["True", "False"])
+def test_post_plan_rejects_unavailable_node_type_with_nonzero_exit(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    mock_aws_api: MagicMock,
+    dry_run: str,
+) -> None:
+    """The actual hook fails with an actionable log in dry-run and real apply."""
+    monkeypatch.setenv("DRY_RUN", dry_run)
+    monkeypatch.setenv("ACTION", "Apply")
+    mock_aws_api.get_node_type_availability_zones.return_value = set()
+
+    with pytest.raises(SystemExit, match="1") as error:
+        runpy.run_path("hooks/post_plan.py", run_name="__main__")
+
+    assert error.value.code == 1
+    assert "test-cluster" in caplog.text
+    assert "cache.t4g.micro" in caplog.text
+    assert "us-east-1a" in caplog.text
+    assert "Validation ended succesfully" not in caplog.text
+
+
+@pytest.mark.usefixtures("post_plan_hook")
+def test_post_plan_valid_placement_passes_dry_run(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    mock_aws_api: MagicMock,
+) -> None:
+    """The actual hook accepts automatic placement with an unsupported unused AZ."""
+    monkeypatch.setenv("DRY_RUN", "True")
+    monkeypatch.setenv("ACTION", "Apply")
+    caplog.set_level(logging.INFO)
+    mock_aws_api.get_node_type_availability_zones.return_value = {"us-east-1a"}
+
+    runpy.run_path("hooks/post_plan.py", run_name="__main__")
+
+    assert "Validation ended succesfully" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("available_zones", "expected"),
+    [
+        ({"us-east-1a"}, False),
+        ({"us-east-1a", "us-east-1b"}, True),
+    ],
+)
+def test_validate_multi_az_automatic_placement_needs_two_eligible_zones(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    available_zones: set[str],
+    *,
+    expected: bool,
+) -> None:
+    """Default failover does not require Multi-AZ placement, but explicit Multi-AZ does."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.after |= {
+        "automatic_failover_enabled": True,
+        "num_cache_clusters": 2,
+        "multi_az_enabled": True,
+    }
+    mock_aws_api.client.describe_replication_groups.side_effect = (
+        mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    mock_aws_api.get_node_type_availability_zones.return_value = available_zones
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is expected
+    if not expected:
+        assert any("Multi-AZ" in error for error in validator.errors)
+
+
+@pytest.mark.usefixtures("post_plan_hook")
+def test_post_plan_preserves_aws_error_and_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Read API failures must stop the hook with the original AWS error visible."""
+    monkeypatch.setenv("DRY_RUN", "True")
+    monkeypatch.setenv("ACTION", "Apply")
+    mock_aws_api.get_node_type_availability_zones.side_effect = ClientError(
+        {"Error": {"Code": "UnauthorizedOperation", "Message": "access denied"}},
+        "DescribeInstanceTypeOfferings",
+    )
+
+    with pytest.raises(SystemExit, match="1") as error:
+        runpy.run_path("hooks/post_plan.py", run_name="__main__")
+
+    assert error.value.code == 1
+    assert "DescribeInstanceTypeOfferings" in caplog.text
+    assert "UnauthorizedOperation" in caplog.text
+    assert "access denied" in caplog.text
+    assert "Validation ended succesfully" not in caplog.text

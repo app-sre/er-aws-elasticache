@@ -91,6 +91,79 @@ def test_get_service_updates(mocker: MockerFixture, aws_api: AWSApi) -> None:
     )
 
 
+@pytest.mark.parametrize("node_type", ["cache.t4g.micro", "cache.t4g.invalid"])
+def test_get_node_type_availability_zones(
+    mocker: MockerFixture, aws_api: AWSApi, node_type: str
+) -> None:
+    """Query the underlying EC2 instance type and consume every result page."""
+    mock_ec2_client = mocker.PropertyMock()
+    mocker.patch.object(type(aws_api), "ec2_client", new=mock_ec2_client)
+    paginator = mock_ec2_client.return_value.get_paginator.return_value
+    paginator.paginate.return_value = [
+        {"InstanceTypeOfferings": [{"Location": "us-east-1a"}]},
+        {"InstanceTypeOfferings": [{"Location": "us-east-1b"}]},
+    ]
+
+    assert aws_api.get_node_type_availability_zones(node_type=node_type) == {
+        "us-east-1a",
+        "us-east-1b",
+    }
+    mock_ec2_client.return_value.get_paginator.assert_called_once_with(
+        "describe_instance_type_offerings"
+    )
+    paginator.paginate.assert_called_once_with(
+        LocationType="availability-zone",
+        Filters=[
+            {"Name": "instance-type", "Values": [node_type.removeprefix("cache.")]}
+        ],
+    )
+
+
+def test_get_node_type_availability_zones_empty(
+    mocker: MockerFixture, aws_api: AWSApi
+) -> None:
+    """No offerings means unavailable, never an implicit success."""
+    mock_ec2_client = mocker.PropertyMock()
+    mocker.patch.object(type(aws_api), "ec2_client", new=mock_ec2_client)
+    mock_ec2_client.return_value.get_paginator.return_value.paginate.return_value = [
+        {"InstanceTypeOfferings": []}
+    ]
+
+    assert (
+        aws_api.get_node_type_availability_zones(node_type="cache.t4g.invalid") == set()
+    )
+
+
+def test_get_replication_group_availability_zones(
+    mocker: MockerFixture, aws_api: AWSApi
+) -> None:
+    """Collect primary and replica placements across all shards."""
+    mock_client = mocker.PropertyMock()
+    mocker.patch.object(type(aws_api), "client", new=mock_client)
+    mock_client.return_value.describe_replication_groups.return_value = {
+        "ReplicationGroups": [
+            {
+                "NodeGroups": [
+                    {
+                        "NodeGroupMembers": [
+                            {"PreferredAvailabilityZone": "us-east-1a"},
+                            {"PreferredAvailabilityZone": "us-east-1b"},
+                        ]
+                    },
+                    {"NodeGroupMembers": [{"PreferredAvailabilityZone": "us-east-1e"}]},
+                ]
+            }
+        ]
+    }
+
+    assert aws_api.get_replication_group_availability_zones(
+        replication_group_id="test-cluster"
+    ) == {"us-east-1a", "us-east-1b", "us-east-1e"}
+    mock_client.return_value.describe_replication_groups.assert_called_once_with(
+        ReplicationGroupId="test-cluster"
+    )
+
+
 def test_batch_apply_service_updates(mocker: MockerFixture, aws_api: AWSApi) -> None:
     mock_client = mocker.PropertyMock()
     mocker.patch.object(type(aws_api), "client", new=mock_client)

@@ -1,0 +1,87 @@
+---
+name: elasticache-node-type-availability
+description: >
+  Regression coverage for https://redhat.atlassian.net/browse/APPSRE-15461.
+  Reject invalid node types during creation and upgrades, in dry-run and Apply.
+  Verify valid creation and upgrade, then destroy the cluster.
+
+base_input: integration-tests/basic/base_input.json
+
+steps:
+  - name: invalid create dry-run
+    input:
+      node_type: cache.t4g.invalid
+      automatic_failover_enabled: false
+      number_cache_clusters: 1
+    action: Apply
+    dry_run: true
+    expect:
+      exit_code: 1
+      log_contains:
+        - "node type cache.t4g.invalid is not offered in availability zones"
+
+  - name: invalid create
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 1
+      log_contains:
+        - "node type cache.t4g.invalid is not offered in availability zones"
+      log_not_contains:
+        - "aws_elasticache_replication_group.this: Creating..."
+
+  - name: create
+    input:
+      node_type: cache.t4g.micro
+      port: 6379
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "db_port = 6379"
+
+  - name: invalid upgrade dry-run
+    input:
+      node_type: cache.t4g.invalid
+      apply_immediately: true
+    action: Apply
+    dry_run: true
+    expect:
+      exit_code: 1
+      log_contains:
+        - "node type cache.t4g.invalid is not offered in availability zones"
+
+  - name: invalid upgrade
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 1
+      log_contains:
+        - "node type cache.t4g.invalid is not offered in availability zones"
+      log_not_contains:
+        - "aws_elasticache_replication_group.this: Modifying..."
+
+  - name: upgrade
+    input:
+      node_type: cache.t4g.small
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "aws_elasticache_replication_group.this: Modifying..."
+
+cleanup:
+  name: destroy
+  action: Destroy
+  dry_run: false
+  timeout_seconds: 3600
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"

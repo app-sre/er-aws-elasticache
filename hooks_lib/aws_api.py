@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import operator
 from typing import TYPE_CHECKING, Any
@@ -94,6 +96,39 @@ class AWSApi:
             key=operator.itemgetter("ServiceUpdateReleaseDate"),
             reverse=True,
         )
+
+    def get_node_type_availability_zones(self, *, node_type: str) -> set[str]:
+        """Return AZ offerings using AWS's documented ElastiCache creation check."""
+        paginator = self.ec2_client.get_paginator("describe_instance_type_offerings")
+        return {
+            location
+            for page in paginator.paginate(
+                LocationType="availability-zone",
+                Filters=[
+                    {
+                        "Name": "instance-type",
+                        "Values": [node_type.removeprefix("cache.")],
+                    }
+                ],
+            )
+            for offering in page.get("InstanceTypeOfferings", [])
+            if (location := offering.get("Location"))
+        }
+
+    def get_replication_group_availability_zones(
+        self, *, replication_group_id: str
+    ) -> set[str]:
+        """Return occupied AZs for all primaries and replicas in a group."""
+        response = self.client.describe_replication_groups(
+            ReplicationGroupId=replication_group_id
+        )
+        return {
+            zone
+            for group in response.get("ReplicationGroups", [])
+            for shard in group.get("NodeGroups", [])
+            for member in shard.get("NodeGroupMembers", [])
+            if (zone := member.get("PreferredAvailabilityZone"))
+        }
 
     def batch_apply_service_updates(
         self, replication_group_id: str, service_update_name: str
