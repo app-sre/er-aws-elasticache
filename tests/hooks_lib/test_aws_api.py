@@ -13,6 +13,46 @@ def aws_api() -> AWSApi:
     return AWSApi(config_options={"region_name": "us-east-1"})
 
 
+@pytest.mark.parametrize(
+    ("property_name", "service"), [("client", "elasticache"), ("ec2_client", "ec2")]
+)
+def test_client_is_constructed_once_per_instance(
+    mocker: MockerFixture,
+    aws_api: AWSApi,
+    property_name: str,
+    service: str,
+) -> None:
+    """Repeated property reads must reuse the configured boto3 client."""
+    create_client = mocker.patch.object(
+        aws_api.session,
+        "client",
+        side_effect=[mocker.sentinel.first_client, mocker.sentinel.second_client],
+    )
+
+    assert getattr(aws_api, property_name) is mocker.sentinel.first_client
+    assert getattr(aws_api, property_name) is mocker.sentinel.first_client
+    create_client.assert_called_once_with(service, config=aws_api.config)
+
+
+@pytest.mark.parametrize("property_name", ["client", "ec2_client"])
+def test_clients_are_not_shared_between_instances(
+    mocker: MockerFixture, property_name: str
+) -> None:
+    """Caching must not mix clients across AWSApi instances or configurations."""
+    session = mocker.patch("hooks_lib.aws_api.Session").return_value
+    session.client.side_effect = [
+        mocker.sentinel.first_client,
+        mocker.sentinel.second_client,
+    ]
+    first = AWSApi(config_options={"region_name": "us-east-1"})
+    second = AWSApi(config_options={"region_name": "us-west-2"})
+
+    assert getattr(first, property_name) is mocker.sentinel.first_client
+    assert getattr(second, property_name) is mocker.sentinel.second_client
+    assert getattr(first, property_name) is mocker.sentinel.first_client
+    assert session.client.call_count == len((first, second))
+
+
 def test_get_cache_group_subnets_not_found(
     mocker: MockerFixture, aws_api: AWSApi
 ) -> None:

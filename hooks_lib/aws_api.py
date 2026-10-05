@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import operator
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from boto3 import Session
@@ -39,12 +40,12 @@ class AWSApi:
         self.session = Session()
         self.config = Config(**config_options)
 
-    @property
+    @cached_property
     def client(self) -> ElastiCacheClient:
         """Gets a boto client"""
         return self.session.client("elasticache", config=self.config)
 
-    @property
+    @cached_property
     def ec2_client(self) -> EC2Client:
         """Gets a boto client"""
         return self.session.client("ec2", config=self.config)

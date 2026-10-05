@@ -1,6 +1,7 @@
 # ruff: file-ignore[private-member-access]
 import logging
 import runpy
+from copy import deepcopy
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -30,7 +31,7 @@ def mock_aws_client() -> MagicMock:
     client = MagicMock()
 
     # Mock describe_replication_groups
-    client.exceptions.ReplicationGroupNotFoundFault = Exception
+    client.exceptions.ReplicationGroupNotFoundFault = LookupError
 
     # Mock describe_cache_parameters
     client.exceptions.CacheParameterGroupNotFoundFault = Exception
@@ -124,6 +125,22 @@ def replication_group_change() -> ResourceChange:
             after_unknown=None,
         ),
     )
+
+
+@pytest.fixture
+def replication_group_update(
+    replication_group_change: ResourceChange,
+) -> ResourceChange:
+    """An existing group with unchanged node type and placement."""
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.after |= {
+        "multi_az_enabled": False,
+        "num_cache_clusters": 2,
+    }
+    replication_group_change.change.before = dict(replication_group_change.change.after)
+    return replication_group_change
 
 
 @pytest.fixture
@@ -1463,3 +1480,142 @@ def test_post_plan_preserves_aws_error_and_exits_nonzero(
     assert "UnauthorizedOperation" in caplog.text
     assert "access denied" in caplog.text
     assert "Validation ended succesfully" not in caplog.text
+
+
+@pytest.mark.parametrize("scale_out", [False, True])
+@pytest.mark.parametrize("valid", [False, True])
+def test_validate_multi_az_enablement_on_update(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,
+    *,
+    scale_out: bool,
+    valid: bool,
+) -> None:
+    """Validate occupied AZs for enablement alone and possible AZs after scale-out."""
+    assert replication_group_update.change
+    assert replication_group_update.change.after
+    replication_group_update.change.after["multi_az_enabled"] = True
+    if scale_out:
+        replication_group_update.change.after["num_cache_clusters"] = 3
+    mock_aws_api.get_replication_group_availability_zones.return_value = (
+        {"us-east-1a", "us-east-1b"} if valid and not scale_out else {"us-east-1a"}
+    )
+    mock_aws_api.get_node_type_availability_zones.return_value = (
+        {"us-east-1a", "us-east-1b"} if valid or not scale_out else {"us-east-1a"}
+    )
+    validator.plan.plan.resource_changes = [replication_group_update]
+
+    assert validator.validate() is valid
+    if not valid:
+        assert any("Multi-AZ" in error for error in validator.errors)
+
+
+@pytest.mark.parametrize("enabled_after", [True, False])
+def test_validate_non_enabling_multi_az_does_not_read_placement(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,
+    *,
+    enabled_after: bool,
+) -> None:
+    """Unrelated changes must not acquire new placement-validation prerequisites."""
+    assert replication_group_update.change
+    assert replication_group_update.change.before
+    assert replication_group_update.change.after
+    replication_group_update.change.before["multi_az_enabled"] = True
+    replication_group_update.change.after["multi_az_enabled"] = enabled_after
+    validator.plan.plan.resource_changes = [replication_group_update]
+
+    assert validator.validate() is True
+    mock_aws_api.get_node_type_availability_zones.assert_not_called()
+    mock_aws_api.get_replication_group_availability_zones.assert_not_called()
+
+
+def test_validate_multi_az_enablement_uses_existing_nodes_not_new_offerings(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """A flag-only update does not allocate new nodes or need new-node offerings."""
+    assert replication_group_update.change
+    assert replication_group_update.change.after
+    replication_group_update.change.after["multi_az_enabled"] = True
+    mock_aws_api.get_replication_group_availability_zones.return_value = {
+        "us-east-1a",
+        "us-east-1b",
+    }
+    mock_aws_api.get_node_type_availability_zones.return_value = {"us-east-1a"}
+    validator.plan.plan.resource_changes = [replication_group_update]
+
+    assert validator.validate() is True
+    mock_aws_api.get_node_type_availability_zones.assert_not_called()
+    mock_aws_api.get_cache_group_subnets.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "get_replication_group_availability_zones",
+        "list_allowed_node_type_modifications",
+    ],
+)
+def test_validate_missing_replication_group_preserves_errors_and_continues(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,
+    operation: str,
+) -> None:
+    """Missing AWS groups are resource-specific errors, not fatal to the whole plan."""
+    assert replication_group_update.change
+    assert replication_group_update.change.before
+    replication_group_update.change.before["node_type"] = "cache.t3.micro"
+    healthy_group = deepcopy(replication_group_update)
+    assert healthy_group.change
+    assert healthy_group.change.before
+    assert healthy_group.change.after
+    healthy_group.change.before["replication_group_id"] = "healthy-group"
+    healthy_group.change.after["replication_group_id"] = "healthy-group"
+    validator.plan.plan.resource_changes = [replication_group_update, healthy_group]
+    validator.errors.append("Earlier validation finding")
+    missing_group = mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault(
+        "group disappeared from AWS"
+    )
+    allowed_types = {"ScaleUpModifications": ["cache.t4g.micro"]}
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = (
+        allowed_types
+    )
+    if operation == "get_replication_group_availability_zones":
+        mock_aws_api.get_replication_group_availability_zones.side_effect = [
+            missing_group,
+            {"us-east-1a"},
+        ]
+    else:
+        mock_aws_api.client.list_allowed_node_type_modifications.side_effect = [
+            missing_group,
+            allowed_types,
+        ]
+
+    assert validator.validate() is False
+    assert validator.errors[0] == "Earlier validation finding"
+    assert any(
+        "test-cluster" in error and "not found" in error for error in validator.errors
+    )
+    mock_aws_api.client.list_allowed_node_type_modifications.assert_called_with(
+        ReplicationGroupId="healthy-group"
+    )
+
+
+def test_validate_create_fetches_subnet_group_once(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Placement and network checks must share the same subnet-group snapshot."""
+    mock_aws_api.client.describe_replication_groups.side_effect = (
+        mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is True
+    mock_aws_api.get_cache_group_subnets.assert_called_once_with("test-subnet-group")
