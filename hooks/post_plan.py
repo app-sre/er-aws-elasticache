@@ -51,8 +51,16 @@ class ReplicationGroupPlacement(BaseModel, frozen=True):
     replication_group_id: str
     node_type: str
     subnet_group_name: str
+    num_node_groups: int | None = None
     preferred_cache_cluster_azs: tuple[str, ...] | None = None
     multi_az_enabled: bool | None = None
+
+    @property
+    def effective_availability_zones(self) -> tuple[str, ...]:
+        """Return AZ preferences only when AWS uses them for placement."""
+        if (self.num_node_groups or 0) > 1:
+            return ()
+        return self.preferred_cache_cluster_azs or ()
 
 
 class SubnetGroupInfo(BaseModel, frozen=True):
@@ -145,7 +153,7 @@ class ElasticachePlanValidator:
             if new_nodes or node_type_changed
             else set()
         )
-        zones = set(placement.preferred_cache_cluster_azs or ())
+        zones = set(placement.effective_availability_zones)
         current_zones: set[str] = set()
         if new_nodes:
             subnet_zones = self._get_subnet_group(
@@ -237,7 +245,9 @@ class ElasticachePlanValidator:
         if Action.ActionCreate in change.actions:
             return True
         before = change.before or {}
-        if before.get("subnet_group_name") != change.after.get("subnet_group_name") or (
+        if before.get("subnet_group_name") != change.after.get("subnet_group_name"):
+            return True
+        if (change.after.get("num_node_groups") or 0) <= 1 and (
             before.get("preferred_cache_cluster_azs") or []
         ) != (change.after.get("preferred_cache_cluster_azs") or []):
             return True
@@ -511,10 +521,9 @@ class ElasticachePlanValidator:
                     replication_group_id=change.change.after["replication_group_id"],
                     subnet_group_name=change.change.after["subnet_group_name"],
                     security_groups=change.change.after["security_group_ids"],
-                    availability_zones=change.change.after.get(
-                        "preferred_cache_cluster_azs", []
-                    )
-                    or [],
+                    availability_zones=ReplicationGroupPlacement.model_validate(
+                        change.change.after
+                    ).effective_availability_zones,
                     check_replication_group_id=not (
                         change.change.actions
                         == [Action.ActionDelete, Action.ActionCreate]

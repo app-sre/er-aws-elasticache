@@ -15,14 +15,13 @@ from external_resources_io.terraform import (
     TerraformJsonPlanParser,
 )
 
+from er_aws_elasticache.app_interface_input import AppInterfaceInput, ElasticacheData
 from hooks.post_plan import ElasticachePlanValidator, EngineInfo
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from pytest_mock import MockerFixture
-
-    from er_aws_elasticache.app_interface_input import AppInterfaceInput
 
 
 @pytest.fixture
@@ -1619,3 +1618,124 @@ def test_validate_create_fetches_subnet_group_once(
 
     assert validator.validate() is True
     mock_aws_api.get_cache_group_subnets.assert_called_once_with("test-subnet-group")
+
+
+@pytest.mark.parametrize(
+    "actions",
+    [
+        [Action.ActionCreate],
+        [Action.ActionDelete, Action.ActionCreate],
+        [Action.ActionCreate, Action.ActionDelete],
+        [Action.ActionUpdate],
+    ],
+)
+@pytest.mark.parametrize("num_node_groups", [None, 1, 2])
+def test_validate_az_preferences_respect_effective_shard_count(
+    validator: ElasticachePlanValidator,
+    replication_group_change: ResourceChange,
+    mock_aws_api: MagicMock,
+    actions: list[Action],
+    num_node_groups: int | None,
+) -> None:
+    """Ignore multi-shard preferences, including shard counts computed from state."""
+    validator.input = AppInterfaceInput(
+        data=ElasticacheData(
+            region="us-east-1",
+            identifier="test-cluster",
+            output_prefix="test-cluster",
+            engine="valkey",
+            engine_version="7.2",
+            node_type="cache.t4g.micro",
+            replication_group_id="test-cluster",
+            security_group_ids=["sg-123", "sg-456"],
+            subnet_group_name="test-subnet-group",
+            availability_zones=["us-east-1e"],
+        ),
+        provision=validator.input.provision,
+    )
+    assert validator.input.data.num_node_groups is None
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = actions
+    replication_group_change.change.after |= {
+        "engine": "valkey",
+        "engine_version": "7.2",
+        "num_node_groups": num_node_groups,
+        "preferred_cache_cluster_azs": ["us-east-1e"],
+    }
+    if actions != [Action.ActionCreate]:
+        replication_group_change.change.before = {
+            **replication_group_change.change.after,
+            "node_type": "cache.t3.micro",
+            "preferred_cache_cluster_azs": ["us-east-1a"],
+            "replication_group_id": (
+                "old-cluster" if Action.ActionDelete in actions else "test-cluster"
+            ),
+        }
+    mock_aws_api.client.describe_cache_engine_versions.return_value = {
+        "CacheEngineVersions": [{"CacheParameterGroupFamily": "valkey7"}]
+    }
+    mock_aws_api.client.describe_replication_groups.side_effect = (
+        mock_aws_api.client.exceptions.ReplicationGroupNotFoundFault()
+    )
+    mock_aws_api.get_replication_group_availability_zones.return_value = {
+        "us-east-1a",
+        "us-east-1b",
+    }
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = {
+        "ScaleUpModifications": ["cache.t4g.micro"]
+    }
+    validator.plan.plan.resource_changes = [replication_group_change]
+
+    assert validator.validate() is ((num_node_groups or 0) > 1)
+    if (num_node_groups or 0) > 1:
+        assert validator.errors == []
+    else:
+        assert any("us-east-1e" in error for error in validator.errors)
+
+
+def test_validate_ignored_preference_change_does_not_allocate_new_nodes(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """An ineffective preference-only change must not trigger placement reads."""
+    assert replication_group_update.change
+    assert replication_group_update.change.before
+    assert replication_group_update.change.after
+    replication_group_update.change.before["num_node_groups"] = 2
+    replication_group_update.change.after |= {
+        "num_node_groups": 2,
+        "preferred_cache_cluster_azs": ["us-east-1e"],
+    }
+    validator.plan.plan.resource_changes = [replication_group_update]
+
+    assert validator.validate() is True
+    mock_aws_api.get_node_type_availability_zones.assert_not_called()
+    mock_aws_api.get_cache_group_subnets.assert_not_called()
+    mock_aws_api.get_replication_group_availability_zones.assert_not_called()
+
+
+def test_validate_multishard_resize_still_checks_occupied_azs(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,
+) -> None:
+    """Ignored preferences must not weaken validation of real occupied AZs."""
+    assert replication_group_update.change
+    assert replication_group_update.change.before
+    assert replication_group_update.change.after
+    replication_group_update.change.before["node_type"] = "cache.t3.micro"
+    replication_group_update.change.before["num_node_groups"] = 2
+    replication_group_update.change.after |= {
+        "num_node_groups": 2,
+        "preferred_cache_cluster_azs": ["us-east-1a"],
+    }
+    mock_aws_api.get_replication_group_availability_zones.return_value = {"us-east-1e"}
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = {
+        "ScaleUpModifications": ["cache.t4g.micro"]
+    }
+    validator.plan.plan.resource_changes = [replication_group_update]
+
+    assert validator.validate() is False
+    assert any("us-east-1e" in error for error in validator.errors)
