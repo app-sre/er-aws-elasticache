@@ -1,31 +1,37 @@
 #!/usr/bin/env python
 
+from __future__ import annotations
+
 import logging
 import sys
-from dataclasses import dataclass
+from functools import cache
 from typing import TYPE_CHECKING
 
+from botocore.exceptions import ClientError
 from external_resources_io.config import Config
 from external_resources_io.input import parse_model, read_input_from_file
 from external_resources_io.log import setup_logging
 from external_resources_io.terraform import (
     Action,
+    Change,
     ResourceChange,
     TerraformJsonPlanParser,
 )
+from pydantic import BaseModel
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput
 from hooks_lib.aws_api import AWSApi
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Set as AbstractSet
     from typing import Any
 
 logger = logging.getLogger(__name__)
+MIN_MULTI_AZ_ZONES = 2
 
 
-@dataclass
-class EngineInfo:
+class EngineInfo(BaseModel, frozen=True):
     """Represents information about an ElastiCache engine.
 
     Attributes:
@@ -39,6 +45,31 @@ class EngineInfo:
     version: str
 
 
+class ReplicationGroupPlacement(BaseModel, frozen=True):
+    """Placement fields from the planned replication group."""
+
+    replication_group_id: str
+    node_type: str
+    subnet_group_name: str
+    num_node_groups: int | None = None
+    preferred_cache_cluster_azs: tuple[str, ...] | None = None
+    multi_az_enabled: bool | None = None
+
+    @property
+    def effective_availability_zones(self) -> tuple[str, ...]:
+        """Return AZ preferences only when AWS uses them for placement."""
+        if (self.num_node_groups or 0) > 1:
+            return ()
+        return self.preferred_cache_cluster_azs or ()
+
+
+class SubnetGroupInfo(BaseModel, frozen=True):
+    """Immutable subnet-group snapshot shared by placement and network checks."""
+
+    subnet_ids: tuple[str, ...]
+    availability_zones: frozenset[str]
+
+
 class ElasticachePlanValidator:
     """The plan validator class"""
 
@@ -49,6 +80,9 @@ class ElasticachePlanValidator:
         self.input = app_interface_input
         self.aws_api = AWSApi(config_options={"region_name": self.input.data.region})
         self.errors: list[str] = []
+        self._get_subnet_group: Callable[[str], SubnetGroupInfo] = cache(
+            self._load_subnet_group
+        )
 
     @property
     def elasticache_replication_group_updates(self) -> list[ResourceChange]:
@@ -101,6 +135,156 @@ class ElasticachePlanValidator:
     #
     # Replication Group validations
     #
+    def _validate_node_type_availability(self, change: Change) -> None:
+        """Reject unsupported placements before Terraform apply, also in dry-run."""
+        assert change.after
+        before = change.before or {}
+        new_nodes = self._requires_new_nodes(change)
+        node_type_changed = before.get("node_type") != change.after.get("node_type")
+        enabling_multi_az = bool(
+            change.after.get("multi_az_enabled") and not before.get("multi_az_enabled")
+        )
+        if not new_nodes and not node_type_changed and not enabling_multi_az:
+            return
+
+        placement = ReplicationGroupPlacement.model_validate(change.after)
+        available_zones = (
+            self.aws_api.get_node_type_availability_zones(node_type=placement.node_type)
+            if new_nodes or node_type_changed
+            else set()
+        )
+        zones = set(placement.effective_availability_zones)
+        current_zones: set[str] = set()
+        if new_nodes:
+            subnet_zones = self._get_subnet_group(
+                placement.subnet_group_name
+            ).availability_zones
+            if missing_zones := zones - subnet_zones:
+                self.errors.append(
+                    f"Replication group {placement.replication_group_id}: subnet group "
+                    f"{placement.subnet_group_name} does not cover requested availability "
+                    f"zones {', '.join(sorted(missing_zones))}."
+                )
+            zones = zones or set(subnet_zones & available_zones) or set(subnet_zones)
+        if Action.ActionUpdate in change.actions and (
+            node_type_changed or enabling_multi_az
+        ):
+            if current_zones := self.aws_api.get_replication_group_availability_zones(
+                replication_group_id=placement.replication_group_id
+            ):
+                if node_type_changed:
+                    zones |= current_zones
+            else:
+                self.errors.append(
+                    "Cannot determine availability zones for current members of "
+                    f"replication group {placement.replication_group_id}"
+                )
+                return
+        if placement.multi_az_enabled and (
+            Action.ActionCreate in change.actions or enabling_multi_az
+        ):
+            self._validate_multi_az_placement(
+                placement=placement,
+                zones=current_zones
+                | ((zones & available_zones) if new_nodes else set()),
+            )
+        if not new_nodes and not node_type_changed:
+            return
+        self._validate_node_type_zones(
+            placement=placement, zones=zones, available_zones=available_zones
+        )
+        if Action.ActionUpdate in change.actions and node_type_changed:
+            self._validate_node_type_modification(change, placement)
+
+    def _validate_node_type_zones(
+        self,
+        placement: ReplicationGroupPlacement,
+        zones: AbstractSet[str],
+        available_zones: AbstractSet[str],
+    ) -> None:
+        if not zones:
+            self.errors.append(
+                f"Cannot determine availability zones for replication group "
+                f"{placement.replication_group_id} in subnet group {placement.subnet_group_name}"
+            )
+            return
+
+        if unsupported_zones := zones - available_zones:
+            self.errors.append(
+                f"Replication group {placement.replication_group_id}: node type "
+                f"{placement.node_type} is not offered in availability zones "
+                f"{', '.join(sorted(unsupported_zones))}. Choose a supported node type, "
+                "set availability_zones to supported zones, or use a subnet group "
+                "containing only supported zones."
+            )
+
+    def _validate_multi_az_placement(
+        self, placement: ReplicationGroupPlacement, zones: AbstractSet[str]
+    ) -> None:
+        if len(zones) < MIN_MULTI_AZ_ZONES:
+            self.errors.append(
+                f"Replication group {placement.replication_group_id}: Multi-AZ requires "
+                f"at least {MIN_MULTI_AZ_ZONES} eligible availability zones for node type "
+                f"{placement.node_type}. Eligible zones: {', '.join(sorted(zones)) or 'none'}."
+            )
+
+    def _load_subnet_group(self, cache_subnet_group_name: str) -> SubnetGroupInfo:
+        subnets = self.aws_api.get_cache_group_subnets(cache_subnet_group_name)
+        return SubnetGroupInfo(
+            subnet_ids=tuple(subnet["SubnetIdentifier"] for subnet in subnets),
+            availability_zones=frozenset(
+                name
+                for subnet in subnets
+                if (name := subnet.get("SubnetAvailabilityZone", {}).get("Name"))
+            ),
+        )
+
+    @staticmethod
+    def _requires_new_nodes(change: Change) -> bool:
+        assert change.after
+        if Action.ActionCreate in change.actions:
+            return True
+        before = change.before or {}
+        if before.get("subnet_group_name") != change.after.get("subnet_group_name"):
+            return True
+        if (change.after.get("num_node_groups") or 0) <= 1 and (
+            before.get("preferred_cache_cluster_azs") or []
+        ) != (change.after.get("preferred_cache_cluster_azs") or []):
+            return True
+        return any(
+            (change.after.get(field) or 0) > (before.get(field) or 0)
+            for field in (
+                "num_cache_clusters",
+                "num_node_groups",
+                "replicas_per_node_group",
+            )
+        )
+
+    def _validate_node_type_modification(
+        self, change: Change, placement: ReplicationGroupPlacement
+    ) -> None:
+        assert change.before
+        assert change.after
+        if any(
+            change.before.get(field) != change.after.get(field)
+            for field in ("engine", "engine_version")
+        ):
+            # This API evaluates the current engine, not the planned upgrade.
+            return
+        response = self.aws_api.client.list_allowed_node_type_modifications(
+            ReplicationGroupId=placement.replication_group_id
+        )
+        allowed = set(response.get("ScaleUpModifications", [])) | set(
+            response.get("ScaleDownModifications", [])
+        )
+        if placement.node_type not in allowed:
+            self.errors.append(
+                f"Replication group {placement.replication_group_id}: ElastiCache "
+                f"does not allow resizing to node type {placement.node_type}. "
+                f"Allowed node types: {', '.join(sorted(allowed)) or 'none'}. "
+                "Upgrade the engine separately if the target requires a newer version."
+            )
+
     def _validate_replication_group_id(self, replication_group_id: str) -> None:
         logger.info(f"Validating Elasticache replication group {replication_group_id}")
         try:
@@ -119,12 +303,8 @@ class ElasticachePlanValidator:
         logger.info(f"Validating Elasticache subnet group {cache_subnet_group_name}")
 
         vpc_ids: set[str] = set()
-        cache_group_subnets = self.aws_api.get_cache_group_subnets(
-            cache_subnet_group_name
-        )
-        subnets = self.aws_api.get_subnets(
-            subnets=[s["SubnetIdentifier"] for s in cache_group_subnets]
-        )
+        subnet_group = self._get_subnet_group(cache_subnet_group_name)
+        subnets = self.aws_api.get_subnets(subnets=subnet_group.subnet_ids)
 
         for subnet in subnets:
             if "VpcId" not in subnet:
@@ -138,11 +318,7 @@ class ElasticachePlanValidator:
             self.errors.append("All subnets must belong to the same VPC")
 
         # Check that all requested availability zones are covered by the subnet group
-        cache_group_subnet_availability_zones = {
-            name
-            for s in cache_group_subnets
-            if (name := s.get("SubnetAvailabilityZone", {}).get("Name"))
-        }
+        cache_group_subnet_availability_zones = subnet_group.availability_zones
         if not cache_group_subnet_availability_zones.issuperset(availability_zones):
             self.errors.append(
                 f"Subnet group {cache_subnet_group_name} does not cover all requested availability zones {availability_zones}. "
@@ -278,10 +454,13 @@ class ElasticachePlanValidator:
         subnet_group_name: str,
         security_groups: Sequence[str],
         availability_zones: Sequence[str],
+        *,
+        check_replication_group_id: bool = True,
     ) -> None:
         """Validate a single replication group change"""
         # Only validate replication group ID for new resources
-        self._validate_replication_group_id(replication_group_id)
+        if check_replication_group_id:
+            self._validate_replication_group_id(replication_group_id)
 
         if vpc_id := self._validate_subnets(
             cache_subnet_group_name=subnet_group_name,
@@ -327,13 +506,30 @@ class ElasticachePlanValidator:
                 engine_version=change.change.after["engine_version"],
             )
 
+            try:
+                self._validate_node_type_availability(change.change)
+            except (
+                self.aws_api.client.exceptions.ReplicationGroupNotFoundFault
+            ) as error:
+                self.errors.append(
+                    f"Replication group {change.change.after['replication_group_id']} "
+                    f"not found in AWS during placement/resize validation: {error}"
+                )
+
             if Action.ActionCreate in change.change.actions:
                 self._validate_replication_group(
                     replication_group_id=change.change.after["replication_group_id"],
                     subnet_group_name=change.change.after["subnet_group_name"],
                     security_groups=change.change.after["security_group_ids"],
-                    availability_zones=change.change.after.get(
-                        "preferred_cache_cluster_azs", []
+                    availability_zones=ReplicationGroupPlacement.model_validate(
+                        change.change.after
+                    ).effective_availability_zones,
+                    check_replication_group_id=not (
+                        change.change.actions
+                        == [Action.ActionDelete, Action.ActionCreate]
+                        and change.change.before
+                        and change.change.before.get("replication_group_id")
+                        == change.change.after["replication_group_id"]
                     ),
                 )
 
@@ -402,8 +598,12 @@ if __name__ == "__main__":
     logger.info("Running Elasticache terraform plan validation")
     plan = TerraformJsonPlanParser(plan_path=Config().plan_file_json)
     validator = ElasticachePlanValidator(plan, app_interface_input)
-    if not validator.validate():
-        logger.error(validator.errors)
+    try:
+        if not validator.validate():
+            logger.error(validator.errors)
+            sys.exit(1)
+    except ClientError:
+        logger.exception("AWS API error during ElastiCache plan validation")
         sys.exit(1)
 
     logger.info("Validation ended succesfully")
