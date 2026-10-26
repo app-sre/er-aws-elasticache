@@ -7,7 +7,7 @@ license = { text = "Apache 2.0" }
 readme = "README.md"
 requires-python = "~= 3.14.0"
 dependencies = [
-    "boto3==1.43.114",
+    "boto3==1.43.118",
     "external-resources-io==0.7.2",
     "pydantic==2.14.1",
 ]
@@ -19,14 +19,14 @@ documentation = "https://github.com/app-sre/er-aws-elasticache"
 
 [dependency-groups]
 dev = [
-    "boto3-stubs-lite[elasticache,ec2]==1.43.114",
+    "boto3-stubs-lite[elasticache,ec2]==1.43.118",
     "erv2-itest==0.2.1",
     "external-resources-io[cli]==0.7.2",
     "mypy==2.4.0",
     "pytest-cov==7.1.0",
-    "pytest-mock==3.16.0",
+    "pytest-mock==3.17.0",
     "pytest==9.1.1",
-    "ruff==0.17.1",
+    "ruff==0.17.2",
 ]
 
 [project.scripts]
