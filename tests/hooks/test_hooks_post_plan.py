@@ -16,7 +16,11 @@ from external_resources_io.terraform import (
 )
 
 from er_aws_elasticache.app_interface_input import AppInterfaceInput, ElasticacheData
-from hooks.post_plan import ElasticachePlanValidator, EngineInfo
+from hooks.post_plan import (
+    ElasticachePlanValidator,
+    EngineInfo,
+    is_graviton_node_type,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -1739,3 +1743,185 @@ def test_validate_multishard_resize_still_checks_occupied_azs(
 
     assert validator.validate() is False
     assert any("us-east-1e" in error for error in validator.errors)
+
+
+@pytest.mark.parametrize(
+    ("node_type", "expected"),
+    [
+        ("cache.t4g.micro", True),
+        ("cache.t4g.small", True),
+        ("cache.m6g.large", True),
+        ("cache.m7g.xlarge", True),
+        ("cache.r6g.2xlarge", True),
+        ("cache.r7g.large", True),
+        ("cache.r6gd.large", True),
+        ("cache.m6gn.xlarge", True),
+        ("cache.t2.micro", False),
+        ("cache.t3.medium", False),
+        ("cache.m4.large", False),
+        ("cache.m5.xlarge", False),
+        ("cache.m5n.large", False),
+        ("cache.r3.xlarge", False),
+        ("cache.r5.2xlarge", False),
+        ("cache.r5b.xlarge", False),
+    ],
+)
+def test_is_graviton_node_type(node_type: str, *, expected: bool) -> None:
+    """Graviton classification follows the app-interface alert family convention."""
+    assert is_graviton_node_type(node_type) is expected
+
+
+def _node_type_change(
+    *, before_type: str, after_type: str, actions: list[Action] | None = None
+) -> ResourceChange:
+    """Build a replication-group change that modifies the node type."""
+    after = {
+        "replication_group_id": "test-cluster",
+        "engine": "redis",
+        "engine_version": "7.0.7",
+        "node_type": after_type,
+        "subnet_group_name": "test-subnet-group",
+        "security_group_ids": ["sg-123", "sg-456"],
+        "apply_immediately": True,
+        "num_cache_clusters": 2,
+    }
+    return ResourceChange(
+        address="aws_elasticache_replication_group.test",
+        mode="managed",
+        type="aws_elasticache_replication_group",
+        name="test",
+        provider_name="registry.terraform.io/hashicorp/aws",
+        change=Change(
+            actions=actions or [Action.ActionUpdate],
+            before={**after, "node_type": before_type},
+            after=after,
+            after_unknown=None,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("before_type", "after_type", "valid"),
+    [
+        ("cache.r6g.large", "cache.m5.large", False),
+        ("cache.t4g.micro", "cache.t2.micro", False),
+        ("cache.t2.micro", "cache.t3.micro", False),
+        ("cache.t2.micro", "cache.m5.large", False),
+        ("cache.m5.large", "cache.r5.xlarge", False),
+        ("cache.t3.micro", "cache.t4g.micro", True),
+        ("cache.t2.micro", "cache.r6g.large", True),
+        ("cache.r6g.large", "cache.r7g.large", True),
+    ],
+)
+def test_validate_node_type_changes_must_land_on_graviton(
+    validator: ElasticachePlanValidator,
+    mock_aws_api: MagicMock,
+    before_type: str,
+    after_type: str,
+    *,
+    valid: bool,
+) -> None:
+    """Node type changes on existing groups must move to a Graviton node type.
+
+    AWS-enforced upgrades (e.g. the T2 end of support on 2026-12-13) must
+    never be reverted by the reconciler, and tenants changing the node type
+    must pick a Graviton target instead of another x86 type.
+    """
+    mock_aws_api.get_node_type_availability_zones.return_value = {
+        "us-east-1a",
+        "us-east-1b",
+    }
+    mock_aws_api.get_replication_group_availability_zones.return_value = {"us-east-1a"}
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = {
+        "ScaleUpModifications": [after_type],
+    }
+    validator.plan.plan.resource_changes = [
+        _node_type_change(before_type=before_type, after_type=after_type)
+    ]
+
+    assert validator.validate() is valid
+    if not valid:
+        assert any(
+            "Graviton" in error and before_type in error and after_type in error
+            for error in validator.errors
+        )
+
+
+def test_validate_node_type_replacement_must_land_on_graviton(
+    validator: ElasticachePlanValidator,
+    mock_aws_api: MagicMock,
+) -> None:
+    """A replace plan reverting a Graviton node type is blocked too."""
+    mock_aws_api.get_node_type_availability_zones.return_value = {
+        "us-east-1a",
+        "us-east-1b",
+    }
+    validator.plan.plan.resource_changes = [
+        _node_type_change(
+            before_type="cache.r6g.large",
+            after_type="cache.m5.large",
+            actions=[Action.ActionDelete, Action.ActionCreate],
+        )
+    ]
+
+    assert validator.validate() is False
+    assert any(
+        "Graviton" in error and "cache.r6g.large" in error and "cache.m5.large" in error
+        for error in validator.errors
+    )
+
+
+def test_validate_unchanged_x86_node_type_is_not_blocked(
+    validator: ElasticachePlanValidator,
+    replication_group_update: ResourceChange,
+    mock_aws_api: MagicMock,  # ruff: ignore[unused-function-argument]
+) -> None:
+    """Only node type changes are blocked, not reconciling existing x86 clusters."""
+    assert replication_group_update.change
+    assert replication_group_update.change.before
+    assert replication_group_update.change.after
+    replication_group_update.change.before["node_type"] = "cache.t3.micro"
+    replication_group_update.change.after["node_type"] = "cache.t3.micro"
+    validator.plan.plan.resource_changes = [replication_group_update]
+
+    assert validator.validate() is True
+    assert validator.errors == []
+
+
+@pytest.mark.usefixtures("post_plan_hook")
+@pytest.mark.parametrize("dry_run", ["True", "False"])
+def test_post_plan_rejects_graviton_revert_with_nonzero_exit(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    mock_aws_api: MagicMock,
+    replication_group_change: ResourceChange,
+    dry_run: str,
+) -> None:
+    """The actual hook fails when a plan reverts a Graviton node type."""
+    monkeypatch.setenv("DRY_RUN", dry_run)
+    monkeypatch.setenv("ACTION", "Apply")
+    assert replication_group_change.change
+    assert replication_group_change.change.after
+    replication_group_change.change.actions = [Action.ActionUpdate]
+    replication_group_change.change.before = {
+        **replication_group_change.change.after,
+        "node_type": "cache.r6g.large",
+    }
+    replication_group_change.change.after["node_type"] = "cache.m5.large"
+    mock_aws_api.get_node_type_availability_zones.return_value = {
+        "us-east-1a",
+        "us-east-1b",
+    }
+    mock_aws_api.get_replication_group_availability_zones.return_value = {"us-east-1a"}
+    mock_aws_api.client.list_allowed_node_type_modifications.return_value = {
+        "ScaleUpModifications": ["cache.m5.large"],
+    }
+
+    with pytest.raises(SystemExit, match="1") as error:
+        runpy.run_path("hooks/post_plan.py", run_name="__main__")
+
+    assert error.value.code == 1
+    assert "Graviton" in caplog.text
+    assert "cache.r6g.large" in caplog.text
+    assert "cache.m5.large" in caplog.text
+    assert "Validation ended succesfully" not in caplog.text

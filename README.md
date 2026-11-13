@@ -70,6 +70,34 @@ represents the change as `[delete, create]` (a replace), not `[update]`, so it's
 classifies the change).
 
 
+### Node type changes must land on Graviton
+
+AWS retires previous-generation (x86) ElastiCache node types over time — T2 support in
+us-east-1 ends 2026-12-13, after which AWS automatically moves still-affected clusters to a
+newer-generation node type during their maintenance windows. Because Terraform state is
+refreshed from AWS before every plan, such an AWS-enforced upgrade shows up as drift: the
+plan's `before` node type is the new AWS type while `after` is still the old x86 type
+declared in app-interface. Without a guard, the next reconcile silently reverts AWS's
+enforced upgrade — possibly back to a node type that is already end-of-support.
+
+`hooks/post_plan.py`'s `_validate_node_type_architecture` blocks this. For any node type
+change on an existing replication group (in-place update or replace), the target node type
+must be Graviton:
+
+- Graviton → Graviton (rightsizing) and x86 → Graviton (the desired migration) pass.
+- Graviton → x86 is rejected: an AWS-enforced upgrade must not be reverted. The tenant
+  must update `node_type` in app-interface to the Graviton node type now running in AWS.
+- x86 → x86 (e.g. `t2` → `t3` or `t2` → `m5`) is rejected: changing node type without
+  moving to Graviton just re-schedules the same forced-upgrade problem.
+
+Reverting shows up as a failed reconcile (`QontractReconcileError`) instead of a silent
+revert. Graviton classification uses the same family convention as the
+`ElastiCacheNodeTypeUpgrade` alert and runbook in app-interface: families whose generation
+number is followed by `g` (optionally with a variant letter), i.e. `t4g`, `m6g`, `r6g`,
+`r6gd`, `r7g`. Existing clusters that keep an unchanged x86 node type are not blocked by
+this check — the alert nudges those, the module only guards *changes*.
+
+
 ### Staging `transit_encryption_enabled` / `auth_token_update_strategy` on existing resources
 
 Switching an existing (already-created) replication group from no-auth to a required AUTH
