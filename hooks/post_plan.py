@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from functools import cache
 from typing import TYPE_CHECKING
@@ -29,6 +30,20 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 MIN_MULTI_AZ_ZONES = 2
+GRAVITON_FAMILY_PATTERN = re.compile(r"[a-z]+\d+g[dn]?")
+
+
+def is_graviton_node_type(node_type: str) -> bool:
+    """Return whether an ElastiCache node type runs on AWS Graviton (ARM).
+
+    Graviton families carry a trailing "g" (optionally followed by a variant
+    letter) after the generation number: t4g, m6g, r6g, r6gd. This matches
+    the family convention used by the ElastiCacheNodeTypeUpgrade alert and
+    runbook in app-interface, so the alert and this module classify the
+    same node types as Graviton.
+    """
+    family = node_type.removeprefix("cache.").partition(".")[0]
+    return GRAVITON_FAMILY_PATTERN.fullmatch(family) is not None
 
 
 class EngineInfo(BaseModel, frozen=True):
@@ -285,6 +300,45 @@ class ElasticachePlanValidator:
                 "Upgrade the engine separately if the target requires a newer version."
             )
 
+    def _validate_node_type_architecture(self, change: Change) -> None:
+        """Reject node type changes that do not land on a Graviton node type.
+
+        AWS ends support for previous-generation node types (T2 support ends
+        2026-12-13) and automatically upgrades affected clusters to
+        newer-generation node types during their maintenance windows. The
+        reconciler must never revert such an enforced upgrade back to the
+        x86 node type still declared in app-interface, and tenants
+        requesting a node type change must move to Graviton rather than to
+        another previous-generation type.
+        """
+        assert change.after
+        before = change.before or {}
+        before_node_type = before.get("node_type")
+        after_node_type = change.after.get("node_type")
+        if (
+            not isinstance(before_node_type, str)
+            or not isinstance(after_node_type, str)
+            or before_node_type == after_node_type
+            or is_graviton_node_type(after_node_type)
+        ):
+            return
+        if is_graviton_node_type(before_node_type):
+            self.errors.append(
+                f"Replication group {change.after['replication_group_id']}: "
+                f"refusing to change node type from Graviton {before_node_type} "
+                f"back to previous-generation {after_node_type}. AWS-enforced "
+                "node type upgrades must not be reverted - update node_type in "
+                "app-interface to the Graviton node type now running in AWS."
+            )
+        else:
+            self.errors.append(
+                f"Replication group {change.after['replication_group_id']}: node "
+                f"type changes must move to a Graviton node type, not from "
+                f"{before_node_type} to another previous-generation node type "
+                f"({after_node_type}). See the ElastiCache node type upgrade "
+                "runbook for recommended Graviton equivalents."
+            )
+
     def _validate_replication_group_id(self, replication_group_id: str) -> None:
         logger.info(f"Validating Elasticache replication group {replication_group_id}")
         try:
@@ -538,6 +592,7 @@ class ElasticachePlanValidator:
                 # in-place update or a replace (older engines force a replace
                 # for a transit_encryption_enabled change), so this must not
                 # be gated on Action.ActionUpdate alone.
+                self._validate_node_type_architecture(change.change)
                 self._validate_transit_encryption_engine_support(
                     before_transit_encryption_enabled=change.change.before.get(
                         "transit_encryption_enabled"
