@@ -72,6 +72,11 @@ class ElasticacheData(BaseModel):
     auto_minor_version_upgrade: bool | None = True
     automatic_failover_enabled: bool | None = True
     reset_password: str | None = None
+    # None (unset): auto-finalize a pending rotation with SET on the next
+    # apply (historical behavior). False: hold the ROTATE window open - both
+    # the old and new tokens stay valid - until every consumer has rolled
+    # onto the new token. True: finalize now (explicit form of the default).
+    finalize_auth_token_rotation: bool | None = None
     replication_group_description: str = "elasticache replication group"
     engine: str
     engine_version: str
