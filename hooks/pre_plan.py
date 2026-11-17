@@ -131,6 +131,20 @@ def _next_auth_token_update_strategy(
     # password unchanged: either finalizing an already-pending rotation (a
     # marker showing ROTATE) or steady-state (marker showing SET or absent) -
     # both cases finalize/stay at SET.
+    rotation_pending = bool(marker) and marker.get("input") == "ROTATE"
+    if rotation_pending and (
+        app_interface_input.data.finalize_auth_token_rotation is False
+    ):
+        # Tenant is holding the rotation open (APPSRE-15766): return "ROTATE"
+        # so the config stays identical to the last successful apply. The
+        # replication group plans as a no-op (auth_token and
+        # auth_token_update_strategy both unchanged), no ModifyReplicationGroup
+        # call is made, and BOTH the old and new tokens remain valid while
+        # slow-rolling consumers pick up the new one from the output secret.
+        # Only meaningful while a rotation is actually pending - in steady
+        # state this branch is unreachable, so a hold left in the config can
+        # never introduce a stray ROTATE.
+        return "ROTATE"
     return "SET"
 
 

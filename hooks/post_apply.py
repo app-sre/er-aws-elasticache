@@ -55,7 +55,14 @@ def staging_complete(
         # not an already-stable resource adopting this fix.
         return False
 
-    return not (marker and marker.get("input") != "SET")
+    if marker and marker.get("input") != "SET":
+        # A pending rotation deliberately held open by the tenant
+        # (finalize_auth_token_rotation: false, APPSRE-15766) is not an
+        # incomplete stage to fast-retry - it's waiting on the tenant's
+        # consumers to roll, which can take well beyond a reconcile cycle.
+        return data.finalize_auth_token_rotation is False
+
+    return True
 
 
 def terraform_changes(plan: TerraformJsonPlanParser) -> bool:

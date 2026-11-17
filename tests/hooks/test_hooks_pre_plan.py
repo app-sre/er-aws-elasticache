@@ -221,6 +221,84 @@ def test_reset_password_change_during_pending_rotation_restarts_cycle(
     assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
 
 
+def test_pending_rotation_held_open_when_finalization_disabled(
+    ai_input: AppInterfaceInput,
+) -> None:
+    """A pending rotation with finalize_auth_token_rotation: false must not finalize.
+
+    Returning "ROTATE" keeps the config identical to the last successful
+    apply, so the replication group plans as a no-op and both the old and
+    new tokens stay valid while consumers roll (APPSRE-15766).
+    """
+    ai_input.data.reset_password = "reset-1"
+    ai_input.data.finalize_auth_token_rotation = False
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
+
+
+def test_hold_does_not_affect_steady_state(ai_input: AppInterfaceInput) -> None:
+    """A hold left in the config after finalization must not produce a stray ROTATE.
+
+    In steady state (marker showing SET) returning "ROTATE" would change the
+    config and trigger a fresh ModifyReplicationGroup call - the hold only
+    applies while a rotation is actually pending.
+    """
+    ai_input.data.reset_password = "reset-1"
+    ai_input.data.finalize_auth_token_rotation = False
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "SET"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "SET"
+
+
+def test_hold_ignored_when_password_changes(ai_input: AppInterfaceInput) -> None:
+    """A new reset_password marker restarts the cycle regardless of any hold."""
+    ai_input.data.reset_password = "reset-2"
+    ai_input.data.finalize_auth_token_rotation = False
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "SET"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
+
+
+def test_hold_released_finalizes_pending_rotation(
+    ai_input: AppInterfaceInput,
+) -> None:
+    """finalize_auth_token_rotation: true is the explicit form of the default: finalize now."""
+    ai_input.data.reset_password = "reset-1"
+    ai_input.data.finalize_auth_token_rotation = True
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "SET"
+
+
 # compute_transit_encryption_mode
 
 
