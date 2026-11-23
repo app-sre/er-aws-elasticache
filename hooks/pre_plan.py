@@ -23,6 +23,12 @@ RANDOM_PASSWORD_ADDRESS = "random_password.this[0]"
 
 AUTO_TFVARS_FILENAME = "transit_encryption_staging.auto.tfvars.json"
 
+# terraform_data.auth_token_rotation marker input values, set by main.tf:
+# "SET" - steady state, token required
+# "ROTATE" - first-ever token introduction applied, auth still optional
+# "ROTATE_EXISTING" - a replacement of an already-required token applied
+ROTATION_MARKER_HOLDABLE = "ROTATE_EXISTING"
+
 
 def compute_transit_encryption_mode(
     app_interface_input: AppInterfaceInput, state: TerraformState
@@ -126,14 +132,26 @@ def _next_auth_token_update_strategy(
         # finalizing that marker with SET now would ask AWS to SET a token it
         # never actually ROTATEd in, since random_password is about to be
         # replaced with a new value in this same apply.
+        if marker is not None and marker.get("input") in {
+            "ROTATE",
+            ROTATION_MARKER_HOLDABLE,
+        }:
+            logger.warning(
+                "reset_password changed while a rotation is still pending"
+                " (marker input %r): AWS drops the OLDEST token when a cluster"
+                " already carries two - consumers still authenticating with it"
+                " will be locked out by this apply, with no SET involved.",
+                marker.get("input"),
+            )
         return "ROTATE"
 
     # password unchanged: either finalizing an already-pending rotation (a
-    # marker showing ROTATE) or steady-state (marker showing SET or absent) -
-    # both cases finalize/stay at SET.
-    rotation_pending = bool(marker) and marker.get("input") == "ROTATE"
-    if rotation_pending and (
-        app_interface_input.data.finalize_auth_token_rotation is False
+    # marker showing ROTATE/ROTATE_EXISTING) or steady-state (marker showing
+    # SET or absent) - both cases finalize/stay at SET.
+    if (
+        marker is not None
+        and marker.get("input") == ROTATION_MARKER_HOLDABLE
+        and app_interface_input.data.finalize_auth_token_rotation is False
     ):
         # Tenant is holding the rotation open (APPSRE-15766): return "ROTATE"
         # so the config stays identical to the last successful apply. The
@@ -141,11 +159,55 @@ def _next_auth_token_update_strategy(
         # auth_token_update_strategy both unchanged), no ModifyReplicationGroup
         # call is made, and BOTH the old and new tokens remain valid while
         # slow-rolling consumers pick up the new one from the output secret.
-        # Only meaningful while a rotation is actually pending - in steady
-        # state this branch is unreachable, so a hold left in the config can
-        # never introduce a stray ROTATE.
+        # Only a replacement of an already-required token (ROTATE_EXISTING)
+        # can be held: a first-time introduction (ROTATE) must finalize, so a
+        # stale hold left in the config can never leave the cluster accepting
+        # unauthenticated connections indefinitely. In steady state (SET)
+        # this branch is also unreachable, so a hold can never introduce a
+        # stray ROTATE.
         return "ROTATE"
     return "SET"
+
+
+def _rotation_replaces_required_token(
+    strategy: str | None,
+    *,
+    marker: dict[str, Any] | None,
+    random_password: dict[str, Any] | None,
+) -> bool:
+    """Whether a ROTATE in this apply replaces an already-required token.
+
+    Written to the auto.tfvars override so terraform_data.auth_token_rotation
+    records the scope of the rotation (ROTATE_EXISTING vs ROTATE) alongside
+    the strategy - see terraform/transit_encryption_staging.tf.
+    """
+    if strategy == "SET":
+        # A SET (including the create apply, where the strategy variable is
+        # SET) means the token in place is required - irrelevant for the
+        # marker (it just records SET), but keeps the value truthful.
+        return True
+    if marker is None:
+        # Legacy resource predating the marker: a random_password already in
+        # state means a required token was in place (the pre-marker code
+        # always applied SET); no random_password means a first-time
+        # introduction.
+        return random_password is not None
+    # The marker reflects the last successful apply: SET (steady state) and
+    # ROTATE_EXISTING (pending replacement of a required token) both prove a
+    # required token was already in place, while ROTATE means the token
+    # currently live is still the first, optional one.
+    return marker.get("input") in {"SET", ROTATION_MARKER_HOLDABLE}
+
+
+def compute_auth_token_rotation_replaces_required_token(
+    strategy: str | None, state: TerraformState
+) -> bool:
+    """Compute auth_token_rotation_replaces_required_token for this run."""
+    return _rotation_replaces_required_token(
+        strategy,
+        marker=state.get_resource(AUTH_TOKEN_ROTATION_MARKER_ADDRESS),
+        random_password=state.get_resource(RANDOM_PASSWORD_ADDRESS),
+    )
 
 
 def main(app_interface_input: AppInterfaceInput) -> None:
@@ -171,6 +233,11 @@ def main(app_interface_input: AppInterfaceInput) -> None:
     output_file.write_text(
         json.dumps({
             "auth_token_update_strategy": auth_token_update_strategy,
+            "auth_token_rotation_replaces_required_token": (
+                compute_auth_token_rotation_replaces_required_token(
+                    auth_token_update_strategy, state
+                )
+            ),
             "transit_encryption_mode_override": transit_encryption_mode_override,
         }),
         encoding="utf-8",

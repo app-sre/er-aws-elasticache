@@ -36,6 +36,11 @@ variable "environment" {
   default = "production"
 }
 
+variable "finalize_auth_token_rotation" {
+  type    = bool
+  default = null
+}
+
 variable "identifier" {
   type = string
 }

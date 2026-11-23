@@ -16,6 +16,7 @@ from hooks.pre_plan import (
     AUTH_TOKEN_ROTATION_MARKER_ADDRESS,
     RANDOM_PASSWORD_ADDRESS,
     REPLICATION_GROUP_ADDRESS,
+    ROTATION_MARKER_HOLDABLE,
 )
 from hooks_lib import ServiceUpdatesManager
 from hooks_lib.terraform_state import TerraformState, get_current_state
@@ -55,12 +56,18 @@ def staging_complete(
         # not an already-stable resource adopting this fix.
         return False
 
-    if marker and marker.get("input") != "SET":
-        # A pending rotation deliberately held open by the tenant
+    if marker is not None and marker.get("input") != "SET":
+        # A pending replacement of an already-required token
+        # (ROTATE_EXISTING) deliberately held open by the tenant
         # (finalize_auth_token_rotation: false, APPSRE-15766) is not an
         # incomplete stage to fast-retry - it's waiting on the tenant's
         # consumers to roll, which can take well beyond a reconcile cycle.
-        return data.finalize_auth_token_rotation is False
+        # A first-time introduction (ROTATE) is never holdable, so even a
+        # stale hold left in the config fast-retries to SET instead of
+        # leaving the cluster accepting unauthenticated connections.
+        return marker.get("input") == ROTATION_MARKER_HOLDABLE and (
+            data.finalize_auth_token_rotation is False
+        )
 
     return True
 

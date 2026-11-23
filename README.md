@@ -195,9 +195,21 @@ hold lasts. The rotation then becomes two deliberate steps:
    (`finalize_auth_token_rotation: true`, or remove the field) — the next apply finalizes
    with `SET` and revokes the old token.
 
-The hold only takes effect while a rotation is actually pending; in steady state it is
-unreachable and cannot introduce a stray `ROTATE`. A `reset_password` marker change still
-restarts the cycle regardless of the hold.
+The hold only applies to a **replacement of an already-required token** — the
+`terraform_data.auth_token_rotation` marker records the scope of a pending rotation
+(`ROTATE_EXISTING`) versus a first-time AUTH introduction (`ROTATE`), and only the former is
+holdable. A first-time introduction always fast-retries to `SET`, so a stale
+`finalize_auth_token_rotation: false` left in the config cannot leave a cluster accepting
+unauthenticated connections indefinitely. In steady state the hold is likewise unreachable
+and cannot introduce a stray `ROTATE`. A `reset_password` marker change still restarts the
+cycle regardless of the hold.
+
+**Do not bump `reset_password` again while a hold is open.** AWS drops the *oldest* token
+when a cluster that already carries two tokens is ROTATEd again — so a second rotation
+during a hold revokes the token that slow consumers may still be authenticating with, with
+no `SET` involved. Release the hold and let the rotation settle before starting another
+one. `hooks/pre_plan.py` logs a warning whenever `reset_password` changes while a rotation
+is still pending.
 
 **Known limitation: a failed first `ROTATE` attempt is indistinguishable from a legacy
 resource.** `random_password.this[0]` must exist *before* `aws_elasticache_replication_group.this`

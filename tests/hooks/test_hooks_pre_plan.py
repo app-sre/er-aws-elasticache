@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 from hooks.pre_plan import (
     AUTO_TFVARS_FILENAME,
+    compute_auth_token_rotation_replaces_required_token,
     compute_auth_token_update_strategy,
     compute_transit_encryption_mode,
     get_current_state,
@@ -228,7 +229,31 @@ def test_pending_rotation_held_open_when_finalization_disabled(
 
     Returning "ROTATE" keeps the config identical to the last successful
     apply, so the replication group plans as a no-op and both the old and
-    new tokens stay valid while consumers roll (APPSRE-15766).
+    new tokens stay valid while consumers roll (APPSRE-15766). Only a
+    replacement of an already-required token (marker ROTATE_EXISTING) is
+    holdable.
+    """
+    ai_input.data.reset_password = "reset-1"
+    ai_input.data.finalize_auth_token_rotation = False
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE_EXISTING"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
+
+
+def test_hold_does_not_apply_to_first_time_introduction(
+    ai_input: AppInterfaceInput,
+) -> None:
+    """A first-time AUTH introduction (marker ROTATE) is never holdable.
+
+    A stale finalize_auth_token_rotation: false left in the config must not
+    keep auth optional forever - the introduction must finalize with SET.
     """
     ai_input.data.reset_password = "reset-1"
     ai_input.data.finalize_auth_token_rotation = False
@@ -241,7 +266,7 @@ def test_pending_rotation_held_open_when_finalization_disabled(
         "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
     })
 
-    assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
+    assert compute_auth_token_update_strategy(ai_input, state) == "SET"
 
 
 def test_hold_does_not_affect_steady_state(ai_input: AppInterfaceInput) -> None:
@@ -281,6 +306,29 @@ def test_hold_ignored_when_password_changes(ai_input: AppInterfaceInput) -> None
     assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
 
 
+def test_reset_password_change_during_held_rotation_restarts_cycle(
+    ai_input: AppInterfaceInput,
+) -> None:
+    """A password change while a rotation is held open (marker ROTATE_EXISTING) restarts the cycle.
+
+    AWS drops the oldest token when a cluster already carries two, so this
+    apply revokes the token slow consumers may still be on - pre_plan logs a
+    warning for exactly this case (see README).
+    """
+    ai_input.data.reset_password = "reset-2"
+    ai_input.data.finalize_auth_token_rotation = False
+    state = _state({
+        "aws_elasticache_replication_group.this": {
+            "transit_encryption_enabled": True,
+            "transit_encryption_mode": "required",
+        },
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE_EXISTING"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_update_strategy(ai_input, state) == "ROTATE"
+
+
 def test_hold_released_finalizes_pending_rotation(
     ai_input: AppInterfaceInput,
 ) -> None:
@@ -292,11 +340,66 @@ def test_hold_released_finalizes_pending_rotation(
             "transit_encryption_enabled": True,
             "transit_encryption_mode": "required",
         },
-        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE"},
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE_EXISTING"},
         "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
     })
 
     assert compute_auth_token_update_strategy(ai_input, state) == "SET"
+
+
+# compute_auth_token_rotation_replaces_required_token
+
+
+def test_replaces_required_token_when_strategy_is_set() -> None:
+    """A SET (including the create apply) always means the token is required."""
+    assert (
+        compute_auth_token_rotation_replaces_required_token("SET", _state({})) is True
+    )
+
+
+def test_replaces_required_token_for_steady_state_marker() -> None:
+    state = _state({
+        "terraform_data.auth_token_rotation[0]": {"input": "SET"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_rotation_replaces_required_token("ROTATE", state) is True
+
+
+def test_replaces_required_token_for_held_rotation_marker() -> None:
+    """A pending replacement of a required token (ROTATE_EXISTING) stays holdable across held runs."""
+    state = _state({
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE_EXISTING"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_rotation_replaces_required_token("ROTATE", state) is True
+
+
+def test_replaces_required_token_false_for_first_time_introduction() -> None:
+    state = _state({
+        "terraform_data.auth_token_rotation[0]": {"input": "ROTATE"},
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_rotation_replaces_required_token("ROTATE", state) is False
+
+
+def test_replaces_required_token_for_legacy_resource_without_marker() -> None:
+    """A legacy resource (no marker) with random_password in state already had a required token."""
+    state = _state({
+        "random_password.this[0]": {"keepers": {"reset_password": "reset-1"}},
+    })
+
+    assert compute_auth_token_rotation_replaces_required_token("ROTATE", state) is True
+
+
+def test_replaces_required_token_false_for_genuine_first_time() -> None:
+    """Neither the marker nor random_password exists - a genuine first-time introduction."""
+    assert (
+        compute_auth_token_rotation_replaces_required_token("ROTATE", _state({}))
+        is False
+    )
 
 
 # compute_transit_encryption_mode
@@ -412,6 +515,7 @@ def test_main_writes_both_keys_when_staging_needed(
     output_file = tmp_path / AUTO_TFVARS_FILENAME
     assert json.loads(output_file.read_text()) == {
         "auth_token_update_strategy": None,
+        "auth_token_rotation_replaces_required_token": False,
         "transit_encryption_mode_override": "preferred",
     }
 

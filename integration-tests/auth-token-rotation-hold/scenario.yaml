@@ -1,0 +1,127 @@
+# Live coverage for the finalize_auth_token_rotation hold (APPSRE-15766).
+# Two things must be proven live:
+# 1. The hold is scoped to replacements of an already-required token: a
+#    first-time AUTH introduction is never held, even with
+#    finalize_auth_token_rotation: false set from the very first staging step
+#    (its ROTATE must still fast-retry with exit 1 until SET lands).
+# 2. A genuine rotation IS holdable: ROTATE exits 0 (staging deliberately
+#    complete while held, unlike the unheld fast-retry), re-applying while
+#    held is a no-op, and releasing the hold finalizes with SET.
+name: elasticache-auth-token-rotation-hold
+description: >
+  Create an unauthenticated ElastiCache instance, enable required transit
+  encryption + AUTH with a hold (finalize_auth_token_rotation: false)
+  already in the config - the first-time introduction must ignore the hold
+  and fast-retry to SET. Then rotate the password with the hold on: the
+  rotation must be held open (exit 0, both tokens valid), re-apply while
+  held must be a no-op, and releasing the hold must finalize with SET.
+base_input: integration-tests/auth-token-rotation-hold/base_input.json
+steps:
+  - name: create (no encryption, stale hold already in the config)
+    input:
+      finalize_auth_token_rotation: false
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "db_port = 6382"
+
+  - name: enable transit encryption with the hold on - stages to preferred
+    input:
+      transit_encryption_enabled: true
+      transit_encryption_mode: required
+      apply_immediately: true
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 1  # fast-retry signal: staging incomplete
+      log_contains:
+        - "auth_token_update_strategy=None"
+        - "transit_encryption_mode_override='preferred'"
+
+  - name: preferred - required
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 1
+      log_contains:
+        - "auth_token_update_strategy=None"
+        - "transit_encryption_mode_override='required'"
+
+  - name: introduce auth token with the hold on (ROTATE) - hold must NOT apply
+    input:
+      reset_password: "erv2-itest-pw-v1"
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600  # observed up to ~8 minutes for this ModifyReplicationGroup call
+    expect:
+      exit_code: 1  # first-time introduction is never holdable: still fast-retries
+      log_contains:
+        - "auth_token_update_strategy='ROTATE'"
+        - "transit_encryption_mode_override=None"
+
+  - name: finalize auth token (SET) - stale hold still ignored
+    input: {}
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "auth_token_update_strategy='SET'"
+        - "transit_encryption_mode_override=None"
+
+  - name: rotate to password v2 with the hold on (ROTATE_EXISTING) - now held
+    input:
+      reset_password: "erv2-itest-pw-v2"
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0  # held: not an incomplete stage to fast-retry
+      log_contains:
+        - "auth_token_update_strategy='ROTATE'"
+      log_not_contains:
+        - "apply_immediately must be true"
+
+  - name: apply again while held - config must be a no-op
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "auth_token_update_strategy='ROTATE'"
+        - "No changes."
+
+  - name: release the hold - finalize with SET
+    input:
+      finalize_auth_token_rotation: true
+    action: Apply
+    dry_run: false
+    timeout_seconds: 3600
+    expect:
+      exit_code: 0
+      log_contains:
+        - "auth_token_update_strategy='SET'"
+
+  - name: steady state - no further changes
+    input: {}
+    action: Apply
+    dry_run: false
+    expect:
+      exit_code: 0
+      log_contains:
+        - "No changes."
+
+cleanup:
+  name: destroy
+  input: {}
+  action: Destroy
+  dry_run: false
+  expect:
+    exit_code: 0
+    log_contains:
+      - "Destroy complete!"
